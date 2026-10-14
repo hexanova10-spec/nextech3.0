@@ -68,7 +68,9 @@ export const OfflineCentreView: React.FC<OfflineCentreViewProps> = ({
         const localRecords: ClassRecording[] = saved ? JSON.parse(saved) : [];
         if (!cancelled) setRecordings(localRecords);
         if (!navigator.onLine) return;
-        const response = await fetch('/api/recordings');
+        const token = localStorage.getItem('pathashala_token');
+        if (!token) return;
+        const response = await fetch('/api/recordings', { headers: { Authorization: `Bearer ${token}` } });
         if (!response.ok) throw new Error(`Recording API returned HTTP ${response.status}`);
         const data = await response.json();
         const serverRecords: ClassRecording[] = Array.isArray(data.recordings) ? data.recordings : [];
