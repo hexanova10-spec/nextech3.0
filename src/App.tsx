@@ -322,12 +322,12 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setIsAuthModalOpen(true)}
+            onClick={handleLogout}
             className="flex items-center gap-1 text-[#DFF3E8] hover:text-white transition font-bold"
-            title="Switch User or Log In"
+            title="Log out of this account"
           >
             <LogIn className="w-3.5 h-3.5 text-[#A5D9C2]" />
-            <span className="hidden sm:inline">Switch Role</span>
+            <span className="hidden sm:inline">Log Out</span>
           </button>
         </div>
       </div>
@@ -361,27 +361,7 @@ export default function App() {
 
           {/* Quick Context Switchers (Class, Language, Role, Notifications) */}
           <div className="hidden lg:flex items-center gap-2.5">
-            {/* Role Switcher */}
-            <div className="flex p-1 bg-[#F4FBF6] border border-[#D5E9DC] rounded-xl text-xs font-semibold">
-              {(['student', 'teacher', 'parent'] as const).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => {
-                    setRole(r);
-                    if (r === 'teacher') setActiveTab('teacher');
-                    else if (r === 'parent') setActiveTab('parent');
-                    else setActiveTab('dashboard');
-                  }}
-                  className={`px-3 py-1 rounded-lg capitalize transition ${
-                    role === r
-                      ? 'bg-[#006A4E] text-white shadow-xs font-bold'
-                      : 'text-[#64776B] hover:text-[#18352A]'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
+            {/* Portal identity is fixed by the authenticated account; use Log Out to change accounts. */}
 
             {/* Strict Two-Class Assigned Picker */}
             {role === 'student' && (
@@ -498,23 +478,8 @@ export default function App() {
       {/* Mobile Drawer Navigation */}
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-white border-b border-[#D5E9DC] shadow-xl px-4 py-4 space-y-3 animate-fadeIn">
-          <div className="grid grid-cols-3 gap-1 p-1 bg-[#F4FBF6] rounded-xl text-xs font-semibold">
-            {(['student', 'teacher', 'parent'] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => {
-                  setRole(r);
-                  if (r === 'teacher') setActiveTab('teacher');
-                  else if (r === 'parent') setActiveTab('parent');
-                  else setActiveTab('dashboard');
-                }}
-                className={`py-1.5 rounded-lg capitalize ${
-                  role === r ? 'bg-[#006A4E] text-white shadow-xs font-bold' : 'text-[#64776B]'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
+          <div className="rounded-xl border border-[#D5E9DC] bg-[#F4FBF6] px-3 py-2 text-sm font-bold text-[#004B38]">
+            Signed in as {role.charAt(0).toUpperCase() + role.slice(1)} · Log out to change account
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-2">
