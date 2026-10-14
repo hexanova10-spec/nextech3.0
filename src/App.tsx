@@ -576,20 +576,29 @@ export default function App() {
           </div>
         </aside>
 
-        {role === 'parent' && parentFocusNotice && (
-          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm" role="status" aria-live="polite">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-extrabold">{parentFocusNotice.title}</p>
-              <p className="mt-1 text-xs leading-relaxed">{parentFocusNotice.message}</p>
-              <p className="mt-2 text-[10px] text-amber-800">Demo inbox alert. Keep the parent portal open; real lock-screen phone push requires push-service configuration.</p>
-            </div>
-            <button type="button" onClick={() => { const id = parentFocusNotice.id; setParentFocusNotice(null); void fetch(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => {}); }} className="rounded-lg px-2 py-1 text-xs font-bold hover:bg-amber-100" aria-label="Dismiss focus alert">Dismiss</button>
-          </div>
-        )}
-
         {/* Dynamic Center View Container */}
         <main className="flex-1 min-w-0">
+          {role === 'parent' && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#D5E9DC] bg-white p-3 text-xs text-[#18352A]">
+              <span className="font-semibold">Study focus alerts for linked students</span>
+              {'Notification' in window && Notification.permission !== 'granted' && (
+                <button type="button" onClick={() => { void Notification.requestPermission(); }} className="rounded-xl bg-[#006A4E] px-3 py-2 font-bold text-white hover:bg-[#004B38]">
+                  Enable browser notifications
+                </button>
+              )}
+            </div>
+          )}
+          {role === 'parent' && parentFocusNotice && (
+            <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm" role="status" aria-live="polite">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-extrabold">{parentFocusNotice.title}</p>
+                <p className="mt-1 text-xs leading-relaxed">{parentFocusNotice.message}</p>
+                <p className="mt-2 text-[10px] text-amber-800">Demo inbox alert. Keep the parent portal open; real lock-screen phone push requires push-service configuration.</p>
+              </div>
+              <button type="button" onClick={() => { const id = parentFocusNotice.id; setParentFocusNotice(null); void fetch(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => {}); }} className="rounded-lg px-2 py-1 text-xs font-bold hover:bg-amber-100" aria-label="Dismiss focus alert">Dismiss</button>
+            </div>
+          )}
           {activeTab === 'dashboard' && (
             <StudentDashboardView
               profile={profile}
