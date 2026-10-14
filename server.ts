@@ -35,6 +35,7 @@ const db: {
   homework: any[];
   submissions: any[];
   cameraAlerts: any[];
+  focusEvents: any[];
   studentReports: any[];
   parentReports: any[];
   activities: any[];
@@ -123,6 +124,7 @@ const db: {
       teacherFeedback: 'Excellent work Subhashree! Accurate SI unit conversion.'
     }
   ],
+  focusEvents: [],
   cameraAlerts: [
     {
       id: 'CAM-ALT-01',
