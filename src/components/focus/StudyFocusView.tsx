@@ -145,6 +145,62 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [absenceAlertProvisional, setAbsenceAlertProvisional] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const [screenStayAwake, setScreenStayAwake] = useState(false);
+
+  // Attach the stream after React mounts the conditional video element.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = cameraStream;
+    if (cameraStream) {
+      void video.play().catch((error) => {
+        console.warn('Camera preview could not start:', error);
+        setInterruptionNotice('Camera is allowed, but the preview could not start. Check browser camera permissions and try again.');
+      });
+    }
+  }, [cameraStream, cameraActive]);
+
+  // Ask the browser to keep the display awake during an active study session.
+  // This cannot lock the device or prevent users from leaving the page.
+  useEffect(() => {
+    if (!sessionActive || isOnBreak) {
+      if (wakeLockRef.current) {
+        void wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+      setScreenStayAwake(false);
+      return;
+    }
+    let cancelled = false;
+    const requestWakeLock = async () => {
+      try {
+        const api = (navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void>; addEventListener?: (type: string, listener: () => void) => void }> } }).wakeLock;
+        if (!api) { setScreenStayAwake(false); return; }
+        const lock = await api.request('screen');
+        if (cancelled) { await lock.release().catch(() => {}); return; }
+        wakeLockRef.current = lock;
+        setScreenStayAwake(true);
+        lock.addEventListener?.('release', () => {
+          wakeLockRef.current = null;
+          setScreenStayAwake(false);
+        });
+      } catch { setScreenStayAwake(false); }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !wakeLockRef.current) void requestWakeLock();
+    };
+    void requestWakeLock();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      if (wakeLockRef.current) {
+        void wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+    };
+  }, [sessionActive, isOnBreak]);
 
   // Completed session modal summary
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -275,13 +331,11 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
         setCameraStream(stream);
         setCameraActive(true);
         setCameraPermissionGranted(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+
       } else {
-        // Fallback simulation for environments without webcams
-        setCameraActive(true);
-        setCameraPermissionGranted(true);
+        setCameraPermissionGranted(false);
+        setCameraActive(false);
+        setInterruptionNotice('This browser does not support camera access. Try the latest Chrome or Edge over HTTPS.');
       }
     } catch (e) {
       console.warn('Camera permission dismissed or hardware unavailable:', e);
@@ -569,7 +623,7 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
                     : 'bg-slate-100 text-[#64776B]'
                 }`}
               >
-                {cameraActive ? 'Active Local Detection' : 'Disabled'}
+                {cameraActive ? 'Camera Preview Active' : 'Disabled'}
               </span>
             </div>
 
@@ -590,13 +644,16 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
                 </div>
 
                 <p className="text-[10px] text-[#64776B] leading-tight">
-                  🔒 <strong>Privacy:</strong> Camera preview stays in this browser. This prototype does not perform face/eye tracking or record video; distraction alerts use tab/window focus signals only.
+                  {cameraStream ? 'Camera stream connected.' : 'No live camera stream is connected.'} {screenStayAwake ? 'Screen stay-awake is active during this study session.' : 'Screen stay-awake activates when a study session starts, if supported by your browser.'}
+                </p>
+                <p className="text-[10px] text-[#64776B] leading-tight">
+                  🔒 <strong>Privacy:</strong> Camera preview stays in this browser. Face/eye tracking and recording are not enabled. Focus alerts detect when this tab or window loses focus.
                 </p>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-[#F4FBF6] border border-[#D5E9DC] text-center space-y-2">
                 <p className="text-xs text-[#64776B]">
-                  Camera is optional and only shows a local preview. Focus alerts use browser tab/window activity—not facial recognition or gaze tracking.
+                  Camera preview is optional. Focus tracking detects tab/window changes only; it does not detect whether your face is visible.
                 </p>
                 <button
                   onClick={handleToggleCamera}
