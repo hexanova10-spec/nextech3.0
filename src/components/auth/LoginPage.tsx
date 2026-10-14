@@ -20,6 +20,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showDemo, setShowDemo] = useState(true);
+  const [pointer, setPointer] = useState({ x: -200, y: -200 });
+  const [heroTilt, setHeroTilt] = useState({ x: 0, y: 0 });
+
+  const handlePointerMove = (event: React.MouseEvent<HTMLElement>) => {
+    setPointer({ x: event.clientX, y: event.clientY });
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setHeroTilt({
+      x: ((event.clientY - bounds.top) / bounds.height - 0.5) * -5,
+      y: ((event.clientX - bounds.left) / bounds.width - 0.5) * 5
+    });
+  };
 
   const chooseDemo = (account: typeof DEMO_ACCOUNTS[number]) => {
     setRole(account.role);
@@ -53,8 +64,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <main className="min-h-screen bg-[#F4FBF6] text-[#18352A] grid lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#003627] via-[#006A4E] to-[#0B8457] p-12 xl:p-16 text-white">
+    <main onMouseMove={handlePointerMove} onMouseLeave={() => { setPointer({ x: -200, y: -200 }); setHeroTilt({ x: 0, y: 0 }); }} className="relative isolate min-h-screen overflow-hidden bg-[#F4FBF6] text-[#18352A] grid lg:grid-cols-[1.05fr_0.95fr]">
+      <div aria-hidden="true" className="pointer-events-none fixed z-40 h-48 w-48 rounded-full opacity-40 blur-3xl transition-[left,top] duration-150" style={{ left: pointer.x, top: pointer.y, transform: 'translate(-50%, -50%)', background: role === 'teacher' ? '#F59E0B' : role === 'parent' ? '#60A5FA' : '#34D399' }} />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-0 opacity-[0.18]" style={{ backgroundImage: 'radial-gradient(#0B8457 0.8px, transparent 0.8px)', backgroundSize: '22px 22px' }} />
+      <section style={{ transform: `perspective(1200px) rotateX(${heroTilt.x}deg) rotateY(${heroTilt.y}deg)` }} className="relative z-10 hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#003627] via-[#006A4E] to-[#0B8457] p-12 xl:p-16 text-white transition-transform duration-200 ease-out">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-30" style={{ background: `radial-gradient(circle at ${Math.max(0, Math.min(100, 50 + heroTilt.y * 5))}% ${Math.max(0, Math.min(100, 50 + heroTilt.x * -5))}%, rgba(255,255,255,0.45), transparent 35%)` }} />
         <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full border border-white/10" />
         <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full border border-white/10" />
         <div className="absolute -bottom-28 -left-20 h-96 w-96 rounded-full bg-white/5 blur-2xl" />
@@ -68,22 +82,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <p className="mt-6 max-w-lg text-base leading-7 text-emerald-50/85">Personalised learning, an AI tutor, schoolwork, and progress insights — designed for every learner and every language.</p>
           <div className="mt-10 grid grid-cols-3 gap-3">
             {[{ icon: BookOpen, title: 'Learn', detail: 'Curriculum aligned' }, { icon: Sparkles, title: 'Ask AI', detail: 'Personalised help' }, { icon: ShieldCheck, title: 'Grow', detail: 'Track progress' }].map((item) => (
-              <div key={item.title} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm"><item.icon className="mb-4 h-5 w-5 text-amber-300" /><p className="text-sm font-extrabold">{item.title}</p><p className="mt-1 text-[11px] text-emerald-100">{item.detail}</p></div>
+              <div key={item.title} style={{ transform: `translateY(${Math.sin((pointer.x + item.title.length * 35) / 90) * 5}px)` }} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm transition-transform duration-300 hover:-translate-y-2 hover:bg-white/15"><item.icon className="mb-4 h-5 w-5 text-amber-300" /><p className="text-sm font-extrabold">{item.title}</p><p className="mt-1 text-[11px] text-emerald-100">{item.detail}</p></div>
             ))}
           </div>
         </div>
         <p className="relative text-xs text-emerald-100/70">Built for Indian learners • Multilingual • Student-first</p>
       </section>
 
-      <section className="flex items-center justify-center px-5 py-10 sm:px-8">
-        <div className="w-full max-w-md">
+      <section className="relative z-10 flex items-center justify-center px-5 py-10 sm:px-8">
+        <div style={{ transform: `perspective(1000px) rotateX(${heroTilt.x * -0.25}deg) rotateY(${heroTilt.y * 0.25}deg)` }} className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-[0_25px_80px_-35px_rgba(0,75,56,0.28)] backdrop-blur-xl transition-transform duration-200 sm:p-7">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#006A4E] text-white"><Sparkles className="h-6 w-6 text-amber-300" /></div>
             <div><p className="font-black">PATHASHALA AI</p><p className="text-xs text-[#64776B]">Every language. Every learner.</p></div>
           </div>
           <div className="mb-7">
             <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#0B8457]">Welcome back</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight">Sign in to Pathashala</h2>
+            <h2 className="mt-2 text-3xl font-black tracking-tight">Sign in to Pathashala<span className="inline-block animate-pulse text-[#0B8457]">.</span></h2>
             <p className="mt-2 text-sm leading-6 text-[#64776B]">Choose your portal and use your registered email or school ID.</p>
           </div>
 
