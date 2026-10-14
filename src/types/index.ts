@@ -25,6 +25,7 @@ export interface User {
   teachingClasses?: number[]; // For teachers
   teachingSubjects?: string[];
   preferredLanguage?: string;
+  preferredSubject?: string;
   consentAccepted?: boolean;
 }
 
