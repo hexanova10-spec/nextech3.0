@@ -420,6 +420,7 @@ export const TeacherModeView: React.FC<TeacherModeViewProps> = ({
             </div>
           )}
         </div>
+        </div>
       )}
     </div>
   );
