@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ALL_CLASSES } from '../../data/curriculum';
 import {
   GraduationCap,
@@ -48,6 +48,16 @@ export const TeacherModeView: React.FC<TeacherModeViewProps> = ({
   const [toolAction, setToolAction] = useState<'lesson_plan' | 'worksheet' | 'quiz' | 'multilingual'>('lesson_plan');
   const [isGenerating, setIsGenerating] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
+  const [aiMode, setAiMode] = useState<'checking' | 'live' | 'demo'>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/ai/status')
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('AI status unavailable')))
+      .then((data) => { if (!cancelled) setAiMode(data.configured ? 'live' : 'demo'); })
+      .catch(() => { if (!cancelled) setAiMode('demo'); });
+    return () => { cancelled = true; };
+  }, []);
 
   const sampleClassGaps = [
     { concept: 'Prism Refraction & Dispersion Angle', affectedStudents: '12 of 38 (31%)', recommendation: 'Conduct ray tracer interactive demonstration.' },
@@ -75,7 +85,7 @@ export const TeacherModeView: React.FC<TeacherModeViewProps> = ({
           board: 'Odisha State Board (BSE) / CBSE',
           targetLanguage: language,
           textbookLanguage: 'English',
-          action: toolAction === 'quiz' ? 'generate_quiz' : 'explain_detail'
+          action: toolAction
         })
       });
       const data = await response.json();
@@ -267,6 +277,14 @@ export const TeacherModeView: React.FC<TeacherModeViewProps> = ({
       )}
 
       {selectedTab === 'planner' && (
+        <div className="space-y-4">
+          <div className={`flex items-start gap-3 rounded-2xl border p-4 text-xs ${aiMode === 'live' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+            <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
+            <div>
+              <strong>{aiMode === 'checking' ? 'Checking AI connection…' : aiMode === 'live' ? 'Gemini AI is configured' : 'Demo mode — live Gemini is not configured'}</strong>
+              <p className="mt-1">{aiMode === 'live' ? 'Lesson plans, worksheets, quizzes and multilingual resources will request live AI. Provider quota or network errors may still occur.' : 'Add a valid GEMINI_API_KEY to the backend hosting environment, then restart/redeploy the backend. The key must never be placed in frontend variables.'}</p>
+            </div>
+          </div>
         <div className="space-y-6">
           {/* Generator Controls */}
           <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#D5E9DC] shadow-sm space-y-5">
