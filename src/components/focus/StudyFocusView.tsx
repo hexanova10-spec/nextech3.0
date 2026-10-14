@@ -154,6 +154,9 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
     let interval: NodeJS.Timeout | null = null;
     if (sessionActive && !isOnBreak && remainingSeconds > 0) {
       interval = setInterval(() => {
+        if (awayStartRef.current) {
+          processAwayDuration(Math.round((Date.now() - awayStartRef.current) / 1000));
+        }
         setRemainingSeconds((prev) => {
           if (prev <= 1) {
             handleEndSession();
