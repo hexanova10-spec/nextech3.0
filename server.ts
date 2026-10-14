@@ -349,7 +349,7 @@ app.get('/api/health', (req, res) => {
     aiAvailable: Boolean(aiClient),
     app: 'PATHASHALA AI',
     version: '2.0.0',
-    mode: apiKey ? 'Live AI (Gemini 2.5 Flash)' : 'Demo Agentic Engine',
+    mode: aiClient ? 'Live AI (Gemini 2.5 Flash)' : 'Demo Agentic Engine',
     database: 'File-backed JSON store (prototype; use a managed database for production)'
   });
 });
@@ -518,7 +518,7 @@ app.post('/api/homework', (req, res) => {
   }
 
   const newHw = {
-    id: `HW-${Date.now().toString().slice(-3)}`,
+    id: `HW-${Date.now().toString().slice(-6)}-${randomBytes(2).toString('hex')}`,
     title,
     classNum: Number(classNum),
     subject,
