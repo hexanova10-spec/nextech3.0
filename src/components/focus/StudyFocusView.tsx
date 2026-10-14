@@ -155,6 +155,9 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
   const visionFrameRef = useRef<number | null>(null);
   const closedEyesSinceRef = useRef<number | null>(null);
   const lastVisionTimeRef = useRef<number>(0);
+  const lastVisionAlertAtRef = useRef<Record<string, number>>({});
+  const lookingAwaySinceRef = useRef<number | null>(null);
+  const noFaceSinceRef = useRef<number | null>(null);
 
 
   // Attach the stream after React mounts the conditional video element.
@@ -218,6 +221,14 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
           const horizontal = 2 * distance(p[a],p[d]);
           return horizontal ? vertical / horizontal : 0;
         };
+        const raiseVisionAlert = (key: string, message: string, now: number) => {
+          const last = lastVisionAlertAtRef.current[key] || 0;
+          if (now - last < 15000) return;
+          lastVisionAlertAtRef.current[key] = now;
+          setInterruptionNotice(message);
+          playFocusAlarm();
+          showFocusNotification('PATHASHALA AI — Classroom Presence', message);
+        };
         const loop = (now: number) => {
           if (cancelled) return;
           const video = videoRef.current;
@@ -228,12 +239,18 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
               const result = landmarker.detectForVideo(video, now);
               const face = result.faceLandmarks?.[0];
               if (!face) {
+                if (noFaceSinceRef.current === null) noFaceSinceRef.current = now;
+                if (now - noFaceSinceRef.current > 1800) {
+                  raiseVisionAlert('no-face', 'Classroom Presence Alert: No face detected. Please return to the camera view or adjust lighting.', now);
+                }
+                lookingAwaySinceRef.current = null;
                 setPersonDetected(false);
                 setGazeEstimate('No face detected');
                 setDrowsyEstimate('Cannot estimate');
                 closedEyesSinceRef.current = null;
                 setVisionStatus('No face detected — adjust lighting or camera angle');
               } else {
+                noFaceSinceRef.current = null;
                 setPersonDetected(true);
                 const leftEar = ear(face,33,160,158,133,153,144);
                 const rightEar = ear(face,362,385,387,263,373,380);
@@ -246,10 +263,21 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
                 const verticalOffset = (nose.y-(face[159].y+face[386].y)/2);
                 const looksForward = Math.abs(horizontalOffset) < 0.16 && Math.abs(verticalOffset) < 0.16;
                 setGazeEstimate(looksForward ? 'Facing screen (estimate)' : 'Possibly looking away');
+                if (!looksForward) {
+                  if (lookingAwaySinceRef.current === null) lookingAwaySinceRef.current = now;
+                  if (now - lookingAwaySinceRef.current > 5000) {
+                    raiseVisionAlert('looking-away', 'Classroom Presence Alert: You may be looking away from the screen. This is only an estimate.', now);
+                  }
+                } else {
+                  lookingAwaySinceRef.current = null;
+                }
                 if (avgEar < 0.17) {
                   if (closedEyesSinceRef.current === null) closedEyesSinceRef.current = now;
                   const closedMs = now-closedEyesSinceRef.current;
                   setDrowsyEstimate(closedMs > 2500 ? 'Possible prolonged eye closure' : 'Eyes appear closed');
+                  if (closedMs > 2500) {
+                    raiseVisionAlert('eye-closure', 'Classroom Presence Alert: Your eyes appear closed for a while. If you are resting, take a break. This is not a diagnosis.', now);
+                  }
                 } else {
                   closedEyesSinceRef.current = null;
                   setDrowsyEstimate('Eyes appear open');
