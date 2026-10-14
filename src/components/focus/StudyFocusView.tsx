@@ -60,6 +60,81 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
   // Interruption modal / banner state
   const [interruptionNotice, setInterruptionNotice] = useState<string | null>(null);
   const awayStartRef = useRef<number | null>(null);
+  const awayMilestonesRef = useRef<Set<number>>(new Set());
+  const focusSessionIdRef = useRef<string>(''); 
+
+  const sendFocusMilestone = async (seconds: number, level: 'student' | 'parent' | 'alarm') => {
+    const storedUser = (() => {
+      try { return JSON.parse(localStorage.getItem('pathashala_user') || '{}'); } catch { return {}; }
+    })();
+    const studentId = storedUser.id || 'STU-2026-1082';
+    const studentName = storedUser.name || profile.name;
+    try {
+      await fetch('/api/focus-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId,
+          studentName,
+          sessionId: focusSessionIdRef.current || 'FOCUS-SESSION',
+          level,
+          awaySeconds: seconds,
+          reason: document.hidden ? 'tab_hidden' : 'window_not_focused'
+        })
+      });
+    } catch (error) {
+      console.warn('Focus event could not be synced to the server:', error);
+    }
+  };
+
+  const showFocusNotification = (title: string, body: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try { new Notification(title, { body, tag: title }); } catch {}
+    }
+  };
+
+  const playFocusAlarm = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const context = new AudioContextClass();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.18, context.currentTime + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.7);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.72);
+      oscillator.onended = () => { void context.close(); };
+    } catch {}
+  };
+
+  const processAwayDuration = (duration: number) => {
+    if (!sessionActive || isOnBreak || duration < 60) return;
+    const milestones: { seconds: number; level: 'student' | 'parent' | 'alarm'; title: string; body: string }[] = [
+      { seconds: 60, level: 'student', title: 'Time to refocus', body: 'Your study window has been inactive for about one minute. Please check in and resume when ready.' },
+      { seconds: 300, level: 'parent', title: 'Parent check-in', body: 'The study window has been inactive for about five minutes. A parent check-in has been recorded.' },
+      { seconds: 600, level: 'alarm', title: 'Study focus alert', body: 'The study window has been inactive for about ten minutes. Please resume or end your session.' }
+    ];
+    milestones.forEach((milestone) => {
+      if (duration >= milestone.seconds && !awayMilestonesRef.current.has(milestone.seconds)) {
+        awayMilestonesRef.current.add(milestone.seconds);
+        void sendFocusMilestone(milestone.seconds, milestone.level);
+        if (milestone.level !== 'parent') showFocusNotification(milestone.title, milestone.body);
+        if (milestone.level === 'student') setInterruptionNotice(milestone.body);
+        if (milestone.level === 'parent') setInterruptionNotice('A parent check-in notification has been queued after 5 minutes away.');
+        if (milestone.level === 'alarm') {
+          setInterruptionNotice('10-minute focus alert: a gentle alarm played. Please resume or end the session.');
+          showFocusNotification(milestone.title, milestone.body);
+          playFocusAlarm();
+        }
+      }
+    });
+  };
 
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -105,7 +180,7 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
         if (awayStartRef.current) {
           const duration = Math.round((Date.now() - awayStartRef.current) / 1000);
           awayStartRef.current = null;
-          if (duration >= 3) {
+          processAwayDuration(duration);\n          processAwayDuration(duration);\n        if (duration >= 3) {
             const newInterruption: FocusInterruption = {
               id: `INT-${Date.now()}`,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -155,7 +230,7 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [sessionActive, isOnBreak]);
+  }, [sessionActive, isOnBreak, profile.name]);
 
   // Cleanup camera stream
   useEffect(() => {
@@ -279,7 +354,7 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
         <div className="p-3 rounded-2xl bg-[#F4FBF6] border border-[#D5E9DC] max-w-sm text-[11px] text-[#64776B] flex items-start gap-2">
           <Info className="w-4 h-4 text-[#006A4E] shrink-0 mt-0.5" />
           <span>
-            <strong>Device Policy:</strong> Web fullscreen does not lock hardware. Students can freely exit at any time. True lockdown requires school-managed kiosk software.
+            <strong>Device Policy:</strong> This is a supportive in-app focus mode, not a device lock. Browsers cannot prevent closing the tab or opening other apps; school-managed kiosk controls are needed for true lockdown. Students can end a session or take a break.
           </span>
         </div>
       </div>
@@ -498,13 +573,13 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
                 </div>
 
                 <p className="text-[10px] text-[#64776B] leading-tight">
-                  🔒 <strong>Privacy Guarantee:</strong> Presence is verified strictly on your device using optical change. No facial recognition or biometric recording takes place.
+                  🔒 <strong>Privacy:</strong> Camera preview stays in this browser. This prototype does not perform face/eye tracking or record video; distraction alerts use tab/window focus signals only.
                 </p>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-[#F4FBF6] border border-[#D5E9DC] text-center space-y-2">
                 <p className="text-xs text-[#64776B]">
-                  Teacher has enabled optional presence check for this session.
+                  Camera is optional and only shows a local preview. Focus alerts use browser tab/window activity—not facial recognition or gaze tracking.
                 </p>
                 <button
                   onClick={handleToggleCamera}
