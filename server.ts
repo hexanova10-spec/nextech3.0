@@ -397,6 +397,7 @@ async function initializePostgresStore() {
   const migrationPath = path.resolve(__dirname, 'migrations/001_initial.sql');
   const migrationSql = fs.readFileSync(migrationPath, 'utf8');
   await pgPool.query(migrationSql);
+  await pgPool.query("INSERT INTO schema_migrations (version) VALUES ('001_initial') ON CONFLICT (version) DO NOTHING");
 
   const client = await pgPool.connect();
   try {
