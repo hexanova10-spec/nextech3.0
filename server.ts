@@ -1173,11 +1173,13 @@ app.post('/api/gemini/vision', async (req, res) => {
             text: `You are PATHASHALA AI textbook scanner. The student is in Class ${classNum}, studying ${subject}.
 Language preference: ${language}.
 Instructions:
-1. Identify the textbook question or mathematical formula in the image.
-2. Transcribe the exact question text.
-3. Provide step-by-step worked solution adhering to Class ${classNum} Indian curriculum standards.
-4. If there is a diagram, describe its key components and ray/circuit paths.
-Additional Student Request: ${prompt || 'Solve step by step'}`
+1. Read the question in the photo carefully.
+2. Give a SHORT, SIMPLE answer in easy words suitable for a Class ${classNum} student. Use the student's selected language (${language}).
+3. Start with the direct answer. Add only 2-4 short steps if needed to understand the answer.
+4. For numerical questions, show only the needed formula, substitution, calculation, and final answer with units.
+5. Explain difficult words in everyday language. Avoid long introductions, complicated vocabulary, unnecessary headings, and repeating the question.
+6. If a diagram is needed, explain only its important parts in simple words. Never guess unreadable text; ask the student to upload a clearer photo instead.
+Additional Student Request: ${prompt || 'Give a simple answer in easy language'}`
           },
           {
             inlineData: {

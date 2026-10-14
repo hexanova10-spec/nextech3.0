@@ -10,7 +10,7 @@ interface AskFromPhotoViewProps {
 
 export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, activeSubject }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [taskQuery, setTaskQuery] = useState('Solve this question step by step');
+  const [taskQuery, setTaskQuery] = useState('Give a simple answer in easy language');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
@@ -132,7 +132,7 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
             Ask from Photo (ଫଟୋରୁ ପଚାରନ୍ତୁ)
           </h1>
           <p className="text-purple-100 text-xs sm:text-sm leading-relaxed">
-            Snap a photo of your textbook page, complex geometry diagram, or handwritten doubt. PATHSHALA AI inspects the image and solves it step-by-step in <strong>{profile.tutorLanguage}</strong>.
+            Upload a photo of your question. PATHSHALA AI will give a short, easy-to-understand answer in <strong>{profile.tutorLanguage}</strong>.
           </p>
         </div>
       </div>
@@ -223,14 +223,14 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
           <div className="space-y-4">
             <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-600" />
-              2. What should LearnMate do?
+              2. What do you need help with?
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {[
-                'Solve this question step by step',
-                'Explain this diagram and its parts',
-                'Explain in simple language',
+                'Give a simple answer in easy language',
+                'Solve with short steps',
+                'Explain this diagram in easy words',
                 'Generate 2 practice questions like this',
                 'Translate textbook terms to Odia'
               ].map((queryOption) => (
@@ -276,7 +276,7 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
               ) : (
                 <>
                   <Camera className="w-4 h-4" />
-                  <span>Analyze & Solve Photo</span>
+                  <span>Get Simple Answer</span>
                 </>
               )}
             </button>
@@ -294,7 +294,7 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                  Doubt Solved by PATHSHALA Vision
+                  Your Simple Answer
                 </h3>
                 <span className="text-xs text-slate-500">
                   Target: Class {profile.classNum} • Language: {profile.tutorLanguage}
