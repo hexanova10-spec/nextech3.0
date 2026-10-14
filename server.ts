@@ -1185,6 +1185,7 @@ Additional Student Request: ${prompt || 'Solve step by step'}`
     isDemo: true,
     source: 'offline-agent-engine'
   });
+});
 
 // Deterministic fallback response generator
 function generateAgenticFallback(
