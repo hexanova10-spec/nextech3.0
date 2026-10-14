@@ -746,7 +746,7 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
                   Copy AI draft into feedback field
                 </button>
               </div>
-            }
+            )}
 
             <div>
               <label className="block font-bold text-[#18352A] mb-1">
