@@ -197,7 +197,8 @@ const db: {
     {
       id: 'REP-10-OCT26',
       studentId: 'STU-2026-1082',
-      studentName: 'Subhashree Nayak',      classNum: 10,
+      studentName: 'Subhashree Nayak',
+      classNum: 10,
       assignedClasses: [10, 9],
       subject: 'All Subjects (BSE Matriculation Stream)',
       reportingPeriod: 'October 1 – October 14, 2026',
@@ -397,6 +398,7 @@ async function initializePostgresStore() {
   const migrationSql = fs.readFileSync(migrationPath, 'utf8');
   await pgPool.query(migrationSql);
   await pgPool.query("INSERT INTO schema_migrations (version) VALUES ('001_initial') ON CONFLICT (version) DO NOTHING");
+
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
@@ -595,7 +597,8 @@ app.post('/api/auth/register', (req, res) => {
   db.users.push(newUser);
 
   const { password: _password, ...publicUser } = newUser;
-  return res.status(201).json({    success: true,
+  return res.status(201).json({
+    success: true,
     user: publicUser,
     message: 'Account created successfully.'
   });
@@ -794,7 +797,8 @@ app.post('/api/focus-events', (req, res) => {
     id: `FOCUS-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     studentId: student.id,
     studentName: studentName || student.name,
-    sessionId: sessionId || 'FOCUS-SESSION',    level,
+    sessionId: sessionId || 'FOCUS-SESSION',
+    level,
     awaySeconds: seconds,
     reason: typeof reason === 'string' ? reason.slice(0, 80) : 'window_not_focused',
     createdAt: now
@@ -993,7 +997,8 @@ function buildSystemInstruction(
   } else if (action === 'worksheet') {
     actionGuidance =
       'SPECIFIC ACTION: Produce a printable worksheet with clear instructions, varied age-appropriate questions, marks per question, a total marks line, and a separate answer key at the end.';
-  } else if (action === 'multilingual') {    actionGuidance =
+  } else if (action === 'multilingual') {
+    actionGuidance =
       'SPECIFIC ACTION: Teach in the requested target language using authentic script, retain important English technical terms in parentheses, and finish with a short bilingual glossary and recap.';
   } else if (action === 'grade_homework') {
     actionGuidance =
@@ -1212,7 +1217,8 @@ function generateAgenticFallback(
         answer: `### 📝 ଦ୍ରୁତ ପରୀକ୍ଷା (Quick Quiz) • ଶ୍ରେଣୀ ${classNum} ${subject}
 
 **ପ୍ରଶ୍ନ ୧:** ବିଦ୍ୟୁତ ପ୍ରବାହ (Electric Current) ର SI ଏକକ କ’ଣ?
-- A) ଭୋଲ୍ଟ (Volt)- B) ଆମ୍ପିୟର (Ampere)
+- A) ଭୋଲ୍ଟ (Volt)
+- B) ଆମ୍ପିୟର (Ampere)
 - C) ଓମ୍ (Ohm)
 - D) ଜୁଲ୍ (Joule)
 *(ସଠିକ୍ ଉତ୍ତର: B - ଆମ୍ପିୟର)*
