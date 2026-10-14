@@ -44,12 +44,14 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
   const [selectedConfig, setSelectedConfig] = useState<StudySessionConfig>(
     INITIAL_STUDY_SESSION_CONFIGS[0]
   );
+  const [targetMinutes, setTargetMinutes] = useState<number>(INITIAL_STUDY_SESSION_CONFIGS[0].durationMinutes);
 
   // Session state
   const [sessionActive, setSessionActive] = useState(false);
   const [isOnBreak, setIsOnBreak] = useState(false);
-  const [totalSeconds, setTotalSeconds] = useState(selectedConfig.durationMinutes * 60);
-  const [remainingSeconds, setRemainingSeconds] = useState(selectedConfig.durationMinutes * 60);
+  const [totalSeconds, setTotalSeconds] = useState(targetMinutes * 60);
+  const [remainingSeconds, setRemainingSeconds] = useState(targetMinutes * 60);
+  const [overtimeSeconds, setOvertimeSeconds] = useState(0);
   const [activeSecondsCount, setActiveSecondsCount] = useState(0);
 
   // Activities & checklists
@@ -356,17 +358,15 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
   // Timer interval
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    if (sessionActive && !isOnBreak && remainingSeconds > 0) {
+    if (sessionActive && !isOnBreak) {
       interval = setInterval(() => {
         if (awayStartRef.current) {
           processAwayDuration(Math.round((Date.now() - awayStartRef.current) / 1000));
         }
         setRemainingSeconds((prev) => {
-          if (prev <= 1) {
-            handleEndSession();
-            return 0;
-          }
-          return prev - 1;
+          if (prev > 0) return prev - 1;
+          setOvertimeSeconds((overtime) => overtime + 1);
+          return 0;
         });
         setActiveSecondsCount((prev) => prev + 1);
       }, 1000);
@@ -497,13 +497,17 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
   };
 
   const handleStartSession = () => {
+    const safeMinutes = Math.min(600, Math.max(1, Math.floor(Number(targetMinutes) || 1)));
+    setTargetMinutes(safeMinutes);
     setSessionActive(true);
     setIsOnBreak(false);
-    setRemainingSeconds(selectedConfig.durationMinutes * 60);
-    setTotalSeconds(selectedConfig.durationMinutes * 60);
+    setRemainingSeconds(safeMinutes * 60);
+    setTotalSeconds(safeMinutes * 60);
+    setOvertimeSeconds(0);
     setActiveSecondsCount(0);
     setInterruptions([]);
     setInterruptionNotice(null);
+    focusSessionIdRef.current = `FOCUS-${Date.now()}`;
   };
 
   const handleToggleBreak = () => {
@@ -551,6 +555,7 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
     100,
     Math.round(((totalSeconds - remainingSeconds) / (totalSeconds || 1)) * 100)
   );
+  const displayedTimer = remainingSeconds > 0 ? formatTime(remainingSeconds) : formatTime(overtimeSeconds);
 
   return (
     <div className="space-y-6">
@@ -652,13 +657,43 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
               </div>
             )}
 
-            {/* Circular / Large Timer Display */}
+            {/* Student chooses a target duration before starting. */}
+            {!sessionActive && (
+              <div className="max-w-xs mx-auto mb-5 text-left">
+                <label htmlFor="study-target-minutes" className="block text-xs font-bold text-[#18352A] mb-2">
+                  Set your study time (minutes)
+                </label>
+                <input
+                  id="study-target-minutes"
+                  type="number"
+                  min={1}
+                  max={600}
+                  step={1}
+                  value={targetMinutes}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    setTargetMinutes(Number.isFinite(next) ? next : 1);
+                  }}
+                  className="w-full rounded-xl border border-[#D5E9DC] bg-[#F4FBF6] px-4 py-3 text-sm font-bold text-[#18352A] outline-none focus:ring-2 focus:ring-[#006A4E]"
+                  aria-describedby="study-target-help"
+                />
+                <p id="study-target-help" className="text-[11px] text-[#64776B] mt-1">
+                  Choose 1–600 minutes. You can keep studying after the target is reached.
+                </p>
+              </div>
+            )}
+
+            {/* Timer continues counting after the target is reached. */}
             <div className="py-6 sm:py-10">
+              {sessionActive && remainingSeconds === 0 && (
+                <p className="text-sm font-bold text-[#006A4E] mb-2">Target time reached — your study session is still running.</p>
+              )}
               <div className="text-6xl sm:text-7xl font-black text-[#18352A] font-mono tracking-tight">
-                {formatTime(remainingSeconds)}
+                {displayedTimer}
               </div>
               <p className="text-xs text-[#64776B] mt-2 font-semibold">
-                {selectedConfig.chapter} • Target: {selectedConfig.durationMinutes} Minutes
+                {selectedConfig.chapter} • Target: {targetMinutes} Minutes
+                {remainingSeconds === 0 && sessionActive ? ' • Extra study time' : ''}
               </p>
             </div>
 
@@ -671,9 +706,9 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
                 />
               </div>
               <div className="flex justify-between text-[11px] text-[#64776B] font-semibold">
-                <span>Elapsed: {formatTime(totalSeconds - remainingSeconds)}</span>
+                <span>Elapsed: {formatTime(activeSecondsCount)}</span>
                 <span>{progressPercent}% Complete</span>
-                <span>Remaining: {formatTime(remainingSeconds)}</span>
+                <span>{remainingSeconds > 0 ? `Remaining: ${formatTime(remainingSeconds)}` : `Extra: ${formatTime(overtimeSeconds)}`}</span>
               </div>
             </div>
 
