@@ -88,7 +88,7 @@ export default function App() {
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
-  const [parentFocusNotice, setParentFocusNotice] = useState<{ title: string; message: string } | null>(null);
+  const [parentFocusNotice, setParentFocusNotice] = useState<{ id: string; title: string; message: string } | null>(null);
 
   // Parent portal polls the prototype notification inbox while open.
   // Background/mobile push delivery requires Web Push or FCM setup beyond this demo.
@@ -108,7 +108,7 @@ export default function App() {
           (item.category === 'focus' || item.category === 'alert') && !item.read
         );
         if (!cancelled && notice) {
-          setParentFocusNotice({ title: notice.title, message: notice.message });
+          setParentFocusNotice({ id: notice.id, title: notice.title, message: notice.message });
           if (notice.id !== lastNoticeId) {
             lastNoticeId = notice.id;
             if ('Notification' in window && Notification.permission === 'granted') {
@@ -584,7 +584,7 @@ export default function App() {
               <p className="mt-1 text-xs leading-relaxed">{parentFocusNotice.message}</p>
               <p className="mt-2 text-[10px] text-amber-800">Demo inbox alert. Keep the parent portal open; real lock-screen phone push requires push-service configuration.</p>
             </div>
-            <button type="button" onClick={() => setParentFocusNotice(null)} className="rounded-lg px-2 py-1 text-xs font-bold hover:bg-amber-100" aria-label="Dismiss focus alert">Dismiss</button>
+            <button type="button" onClick={() => { const id = parentFocusNotice.id; setParentFocusNotice(null); void fetch(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => {}); }} className="rounded-lg px-2 py-1 text-xs font-bold hover:bg-amber-100" aria-label="Dismiss focus alert">Dismiss</button>
           </div>
         )}
 
