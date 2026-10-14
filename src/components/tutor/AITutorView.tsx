@@ -479,27 +479,20 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
       setMessages((prev) => [...prev, tutorMsg]);
       setTimeout(() => setActiveStep('SAVE'), 500);
     } catch (err: any) {
-      console.warn('API error, using local fallback:', err);
-      // Fallback message with clear error handling
-      const fallbackMsg: ChatMessage = {
-        id: 'tutor-' + Date.now(),
+      console.error('Live AI Tutor request failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown network or server error';
+      const failureMsg: ChatMessage = {
+        id: 'tutor-error-' + Date.now(),
         sender: 'tutor',
-        text: `### 🌟 PATHSHALA AI • Pedagogical Tutor (Class ${profile.classNum})
-**Subject:** ${activeSubject} | **Language:** ${profile.tutorLanguage}
-
-#### Explanation:
-"${query}" is a foundational topic in Class ${profile.classNum} ${activeSubject}.
-1. **Core Concept:** Remember to connect the basic principles with daily observations.
-2. **Key Formula / Mechanism:** Ensure that all SI units are noted down before starting numerical calculations.
-3. **Examination Advice:** In board examinations, always draw a neat labeled diagram where applicable!`,
+        text: `Live AI could not answer this question: ${errorMessage}. Please check your connection and try again. No offline answer was substituted.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         subject: activeSubject,
         classNum: profile.classNum,
         language: profile.tutorLanguage,
         isDemo: true,
-        demoNotice: 'DEMO MODE: Generated via resilient offline agent engine (Network unreachable)'
+        demoNotice: 'LIVE AI REQUEST FAILED — this is an error notice, not a generated answer.'
       };
-      setMessages((prev) => [...prev, fallbackMsg]);
+      setMessages((prev) => [...prev, failureMsg]);
     } finally {
       setIsLoading(false);
     }
