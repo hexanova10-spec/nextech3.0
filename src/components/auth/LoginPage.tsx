@@ -27,11 +27,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [showDemo, setShowDemo] = useState(false);
   const [pointer, setPointer] = useState({ x: 50, y: 50 });
+  const [clickPulse, setClickPulse] = useState(0);
+  const [clickPoint, setClickPoint] = useState({ x: 50, y: 50 });
   const copy = ROLE_COPY[role];
 
   const handlePointerMove = (event: React.MouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPointer({ x: ((event.clientX - rect.left) / rect.width) * 100, y: ((event.clientY - rect.top) / rect.height) * 100 });
+  };
+
+  const handlePointerDown = (event: React.MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setClickPoint({ x: ((event.clientX - rect.left) / rect.width) * 100, y: ((event.clientY - rect.top) / rect.height) * 100 });
+    setClickPulse((pulse) => pulse + 1);
   };
 
   const chooseDemo = (account: typeof DEMO_ACCOUNTS[number]) => {
@@ -69,8 +77,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   return (
     <main
       onMouseMove={handlePointerMove}
+      onMouseDown={handlePointerDown}
       className="pathashala-login relative min-h-screen overflow-hidden bg-[#061D17] text-white selection:bg-emerald-200 selection:text-[#06271C]"
-      style={{ '--role-accent': copy.accent, '--role-soft': copy.soft, '--pointer-x': pointer.x + '%', '--pointer-y': pointer.y + '%' } as React.CSSProperties}
+      style={{ '--role-accent': copy.accent, '--role-soft': copy.soft, '--pointer-x': pointer.x + '%', '--pointer-y': pointer.y + '%', '--click-x': clickPoint.x + '%', '--click-y': clickPoint.y + '%' } as React.CSSProperties}
     >
       <style>{`
         @keyframes orbit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -79,6 +88,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         @keyframes rise { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
         @keyframes reveal { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
         @keyframes scan { 0% { transform: translateY(-120%); } 100% { transform: translateY(380%); } }
+        @keyframes cursor-orbit { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+        @keyframes cursor-bloom { 0% { transform:translate(-50%,-50%) scale(.35); opacity:.72; } 75% { opacity:.22; } 100% { transform:translate(-50%,-50%) scale(1.8); opacity:0; } }
+        @keyframes cursor-dot { 0%,100% { transform:scale(.8); opacity:.35; } 50% { transform:scale(1.25); opacity:.85; } }
+        .pl-cursor-aura { position:absolute; left:var(--pointer-x); top:var(--pointer-y); width:250px; height:250px; transform:translate(-50%,-50%); border-radius:9999px; background:radial-gradient(circle, color-mix(in srgb, var(--role-accent) 13%, transparent) 0%, color-mix(in srgb, var(--role-accent) 5%, transparent) 34%, transparent 70%); transition:left .08s linear,top .08s linear; }
+        .pl-cursor-ring { position:absolute; left:var(--pointer-x); top:var(--pointer-y); width:46px; height:46px; transform:translate(-50%,-50%); border:1px solid color-mix(in srgb, var(--role-accent) 50%, transparent); border-radius:9999px; transition:left .07s linear,top .07s linear; }
+        .pl-cursor-ring::before { content:''; position:absolute; inset:5px; border:1px dashed color-mix(in srgb, var(--role-accent) 55%, transparent); border-radius:inherit; animation:cursor-orbit 9s linear infinite; }
+        .pl-cursor-ring::after { content:''; position:absolute; width:4px; height:4px; left:2px; top:50%; border-radius:9999px; background:var(--role-accent); box-shadow:0 0 12px var(--role-accent); animation:cursor-dot 2s ease-in-out infinite; }
+        .pl-cursor-click { position:absolute; left:var(--click-x); top:var(--click-y); width:42px; height:42px; border:1px solid var(--role-accent); border-radius:9999px; pointer-events:none; animation:cursor-bloom .65s ease-out forwards; }
+        @media (hover: none), (pointer: coarse) { .pl-cursor-aura,.pl-cursor-ring { display:none; } }
         .pl-orbit { animation: orbit-spin 24s linear infinite; }
         .pl-orbit-reverse { animation: orbit-reverse 30s linear infinite; }
         .pl-breathe { animation: breathe 6s ease-in-out infinite; }
@@ -94,9 +112,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         .pl-submit { background:var(--role-accent); color:#06271C; transition:transform .25s ease, box-shadow .25s ease; }
         .pl-submit:hover { transform:translateY(-2px); box-shadow:0 14px 40px color-mix(in srgb, var(--role-accent) 20%, transparent); }
         .pl-submit:active { transform:translateY(0) scale(.99); }
-        @media (prefers-reduced-motion: reduce) { .pl-orbit,.pl-orbit-reverse,.pl-breathe,.pl-rise,.pl-reveal,.pl-scan { animation:none !important; } }
+        @media (prefers-reduced-motion: reduce) { .pl-orbit,.pl-orbit-reverse,.pl-breathe,.pl-rise,.pl-reveal,.pl-scan,.pl-cursor-ring::before,.pl-cursor-ring::after,.pl-cursor-click { animation:none !important; } .pl-cursor-aura,.pl-cursor-ring { transition:none !important; } }
       `}</style>
 
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[60] overflow-hidden">
+        <div className="pl-cursor-aura" />
+        <div className="pl-cursor-ring" />
+        <div key={clickPulse} className="pl-cursor-click" />
+      </div>
       <div className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.13) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.13) 1px, transparent 1px)', backgroundSize: '64px 64px', maskImage: 'linear-gradient(to bottom, black, transparent 88%)' }} />
       <div className="pointer-events-none absolute -left-44 -top-40 h-[32rem] w-[32rem] rounded-full blur-[110px] transition-colors duration-700" style={{ background: copy.soft, opacity: .28 }} />
       <div className="pointer-events-none absolute -bottom-48 right-[20%] h-[35rem] w-[35rem] rounded-full bg-emerald-700/20 blur-[120px]" />
