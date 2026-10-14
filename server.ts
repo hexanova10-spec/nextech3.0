@@ -17,57 +17,6 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '15mb' }));
 app.disable('x-powered-by');
-
-// Authenticate API requests using the signed token issued by /api/auth/login.
-// Public routes are limited to login, registration, and health/readiness checks.
-app.use('/api', (req, res, next) => {
-  if (
-    req.path === '/auth/login' ||
-    req.path === '/auth/register' ||
-    req.path === '/health' ||
-    req.path === '/ai/status'
-  ) return next();
-
-  const authorization = req.headers.authorization || '';
-  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-  const parts = token.split('.');
-  if (parts.length !== 3 || !configuredAuthSecret) {
-    return res.status(401).json({ error: 'Sign in required. Please log in again.' });
-  }
-
-  try {
-    const unsigned = parts.slice(0, 2).join('.');
-    const expected = createHmac('sha256', AUTH_SECRET).update(unsigned).digest();
-    const actual = Buffer.from(parts[2], 'base64url');
-    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
-      return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
-    }
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-    if (!payload.sub || !payload.role || !payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
-      return res.status(401).json({ error: 'Session expired. Please sign in again.' });
-    }
-    const user = db.users.find((item) => item.id === payload.sub && item.role === payload.role);
-    if (!user) return res.status(401).json({ error: 'Account not found. Please sign in again.' });
-
-    (req as any).authUser = user;
-    const role = user.role as string;
-    const route = req.path;
-
-    // Role-specific endpoints cannot be accessed by changing frontend controls or URL.
-    if (
-      (route.startsWith('/teacher') && role !== 'teacher') ||
-      (route.startsWith('/parent') && role !== 'parent') ||
-      (route.startsWith('/student') && role !== 'student') ||
-      (route.startsWith('/camera-alerts') && role !== 'teacher') ||
-      (route.startsWith('/reports') && role === 'student')
-    ) {
-      return res.status(403).json({ error: 'Your account role is not allowed to access this resource.' });
-    }
-    return next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
-  }
-});
 const STORE_FILE = path.resolve(__dirname, process.env.PATHASHALA_DATA_FILE || '.pathashala-data.json');
 const configuredAuthSecret = process.env.PATHASHALA_AUTH_SECRET || process.env.JWT_SECRET;
 const AUTH_SECRET = configuredAuthSecret || randomBytes(32).toString('hex');
@@ -716,12 +665,32 @@ app.post('/api/recordings', (req, res) => {
 // ==========================================
 
 app.get('/api/homework', (req, res) => {
-  const { classNum } = req.query;
+  const user = (req as any).authUser;
+  const requestedClass = req.query.classNum ? Number(req.query.classNum) : undefined;
   let items = db.homework;
-  if (classNum) {
-    items = items.filter((h) => h.classNum === Number(classNum));
+  if (user.role === 'student') {
+    const allowedClasses = Array.isArray(user.assignedClasses) ? user.assignedClasses : [];
+    items = items.filter((item) => allowedClasses.includes(Number(item.classNum)));
+  } else if (user.role === 'teacher') {
+    const allowedClasses = Array.isArray(user.teachingClasses) ? user.teachingClasses : [];
+    items = items.filter((item) => item.teacherId === user.id || allowedClasses.includes(Number(item.classNum)));
+  } else if (user.role === 'parent') {
+    const childIds = Array.isArray(user.linkedStudentIds) ? user.linkedStudentIds : [];
+    const childClasses = db.users.filter((item) => childIds.includes(item.id)).flatMap((item) => item.assignedClasses || []);
+    items = items.filter((item) => childClasses.includes(Number(item.classNum)));
+  } else {
+    return res.status(403).json({ error: 'Role not permitted.' });
   }
-  return res.json({ homework: items, submissions: db.submissions });
+  if (requestedClass) items = items.filter((item) => Number(item.classNum) === requestedClass);
+  const visibleIds = user.role === 'student'
+    ? new Set([user.id])
+    : user.role === 'parent'
+      ? new Set(user.linkedStudentIds || [])
+      : null;
+  const submissions = visibleIds
+    ? db.submissions.filter((item) => visibleIds.has(item.studentId))
+    : db.submissions.filter((item) => items.some((homework) => homework.id === item.assignmentId));
+  return res.json({ homework: items, submissions });
 });
 
 app.post('/api/homework', (req, res) => {
@@ -789,7 +758,11 @@ app.post('/api/homework/:id/submit', (req, res) => {
 // ==========================================
 
 app.get('/api/camera-alerts', (req, res) => {
-  return res.json({ alerts: db.cameraAlerts });
+  const user = (req as any).authUser;
+  if (user.role !== 'teacher') return res.status(403).json({ error: 'Teacher access required.' });
+  const classes = Array.isArray(user.teachingClasses) ? user.teachingClasses : [];
+  const alerts = db.cameraAlerts.filter((item) => classes.includes(Number(item.classNum)));
+  return res.json({ alerts });
 });
 
 app.post('/api/camera-alerts', (req, res) => {
@@ -907,10 +880,22 @@ app.post('/api/notifications/:id/read', (req, res) => {
 // ==========================================
 
 app.get('/api/reports', (req, res) => {
-  return res.json({
-    studentReports: db.studentReports,
-    parentReports: db.parentReports
-  });
+  const user = (req as any).authUser;
+  if (user.role === 'parent') {
+    const linkedIds = Array.isArray(user.linkedStudentIds) ? user.linkedStudentIds : [];
+    return res.json({
+      studentReports: [],
+      parentReports: db.parentReports.filter((report) => linkedIds.includes(report.studentId) && report.status === 'Published')
+    });
+  }
+  if (user.role === 'teacher') {
+    const classes = Array.isArray(user.teachingClasses) ? user.teachingClasses : [];
+    return res.json({
+      studentReports: db.studentReports.filter((report) => report.teacherId === user.id || classes.includes(Number(report.classNum))),
+      parentReports: []
+    });
+  }
+  return res.status(403).json({ error: 'Report access denied.' });
 });
 
 app.post('/api/reports', (req, res) => {
