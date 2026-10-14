@@ -72,10 +72,8 @@ export default function App() {
 
   // Load persisted student profile and active subject if available
   const [activeSubject, setActiveSubject] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('pathashala_subject') || 'Physics (ପଦାର୍ଥ ବିଜ୍ଞାନ)';
-    }
-    return 'Physics (ପଦାର୍ଥ ବିଜ୍ଞାନ)';
+    if (typeof window !== 'undefined') return localStorage.getItem('pathashala_subject') || 'Mathematics';
+    return 'Mathematics';
   });
 
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
@@ -201,6 +199,17 @@ export default function App() {
 
   const handleAuthSuccess = (user: User, newRole: UserRole) => {
     setCurrentUser(user);
+    if (newRole === 'student') {
+      const chosenSubject = user.preferredSubject || localStorage.getItem('pathashala_subject') || 'Mathematics';
+      setActiveSubject(chosenSubject);
+      localStorage.setItem('pathashala_subject', chosenSubject);
+      if (user.preferredLanguage) {
+        localStorage.setItem('pathashala_language', user.preferredLanguage);
+        setProfile((prev) => ({ ...prev, interfaceLanguage: user.preferredLanguage!, tutorLanguage: user.preferredLanguage!, textbookLanguage: user.preferredLanguage!, subjects: [chosenSubject] }));
+      } else {
+        setProfile((prev) => ({ ...prev, subjects: [chosenSubject] }));
+      }
+    }
     setIsAuthenticated(true);
     setRole(newRole);
     if (newRole === 'teacher') {
@@ -376,6 +385,21 @@ export default function App() {
                 </span>
                 <ChevronDown className="w-3 h-3 text-[#006A4E]" />
               </button>
+            )}
+
+            {role === 'student' && (
+              <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F4FBF6] border border-[#D5E9DC] text-xs font-bold text-[#006A4E]">
+                <BookOpen className="w-4 h-4" />
+                <span>Subject</span>
+                <select aria-label="Choose study subject" value={activeSubject} onChange={(e) => {
+                  const subject = e.target.value;
+                  setActiveSubject(subject);
+                  localStorage.setItem('pathashala_subject', subject);
+                  setProfile((prev) => ({ ...prev, subjects: [subject] }));
+                }} className="max-w-32 bg-transparent outline-none">
+                  {['Mathematics', 'Science', 'Physics', 'Chemistry', 'Biology', 'English', 'Odia', 'History', 'Geography', 'Computer Science'].map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+                </select>
+              </label>
             )}
 
             {/* Language Centre Picker */}
