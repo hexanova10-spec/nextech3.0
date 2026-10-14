@@ -11,15 +11,15 @@ interface AskFromPhotoViewProps {
 // Convert common AI Markdown/LaTeX output into clean, readable text without showing raw symbols.
 const formatPhotoAnswer = (answer: string): string => {
   return answer
-    .replace(/\\\\?frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
-    .replace(/\\\\?(?:Omega|omega)/g, 'Ω')
-    .replace(/\\\\times/g, '×')
-    .replace(/\\\\cdot/g, '·')
-    .replace(/\\\\(?:text|mathrm)\{([^{}]*)\}/g, '$1')
-    .replace(/\\\\(?:left|right)/g, '')
-    .replace(/\\\\(?:,|;|!|quad|qquad)/g, ' ')
+    .replace(/\\+frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
+    .replace(/\\+(?:Omega|omega)/g, 'Ω')
+    .replace(/\\+times/g, '×')
+    .replace(/\\+cdot/g, '·')
+    .replace(/\\+(?:text|mathrm)\{([^{}]*)\}/g, '$1')
+    .replace(/\\+(?:left|right)/g, '')
+    .replace(/\\+(?:,|;|!|quad|qquad)/g, ' ')
     .replace(/\$\$?/g, '')
-    .replace(/\\\\[()[\]]/g, '')
+    .replace(/\\+[()[\]]/g, '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/^\s*#{1,6}\s+/gm, '')
     .replace(/[{}]/g, '')
