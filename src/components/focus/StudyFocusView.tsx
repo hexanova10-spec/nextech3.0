@@ -194,13 +194,13 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
         closedEyesSinceRef.current = null;
         return;
       }
-      setVisionStatus('Loading on-device vision model…');
+      setVisionStatus('Loading MediaPipe face-tracking model…');
       try {
         // Loaded only when the user enables the camera. The model runs in-browser.
-        const visionModule: any = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm');
+        const visionModule: any = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.0/vision_bundle.mjs');
         if (cancelled) return;
         const files = await visionModule.FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.0/wasm'
         );
         const landmarker = await visionModule.FaceLandmarker.createFromOptions(files, {
           baseOptions: {
@@ -294,7 +294,7 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
         visionFrameRef.current = requestAnimationFrame(loop);
       } catch (error) {
         console.error('Could not initialize local vision model:', error);
-        setVisionStatus('Model could not load — check internet access and reload');
+        setVisionStatus('Tracking model failed to load. Check internet access and retry Presence Check.');
       }
     };
     void boot();
