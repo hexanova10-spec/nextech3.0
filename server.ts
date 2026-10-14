@@ -606,13 +606,11 @@ app.post('/api/focus-events', (req, res) => {
 });
 
 app.get('/api/notifications', (req, res) => {
-  const { recipientRole, recipientId } = req.query;
-  if (!recipientRole || !recipientId) {
-    return res.status(400).json({ error: 'recipientRole and recipientId are required.' });
-  }
-  const notifications = db.notifications.filter((n) =>
-    n.recipientRole === String(recipientRole) && n.recipientId === String(recipientId)
-  );
+  const { recipientRole, recipientId, role } = req.query;
+  let notifications = db.notifications;
+  const selectedRole = recipientRole || role;
+  if (selectedRole) notifications = notifications.filter((item) => item.recipientRole === String(selectedRole));
+  if (recipientId) notifications = notifications.filter((item) => item.recipientId === String(recipientId));
   return res.json({ notifications });
 });
 
@@ -711,15 +709,7 @@ app.post('/api/activity', (req, res) => {
   return res.json({ success: true, event: newEvent });
 });
 
-// Backwards-compatible role and recipient filters for the notification inbox.
-app.get('/api/notifications', (req, res) => {
-  const { recipientRole, recipientId, role } = req.query;
-  let notifications = db.notifications;
-  const selectedRole = recipientRole || role;
-  if (selectedRole) notifications = notifications.filter((item) => item.recipientRole === String(selectedRole));
-  if (recipientId) notifications = notifications.filter((item) => item.recipientId === String(recipientId));
-  return res.json({ notifications });
-});
+
 
 // ==========================================
 // GEMINI AI INTEGRATION ROUTES
