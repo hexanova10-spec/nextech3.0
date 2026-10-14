@@ -88,6 +88,42 @@ export default function App() {
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+  const [parentFocusNotice, setParentFocusNotice] = useState<{ title: string; message: string } | null>(null);
+
+  // Parent portal polls the prototype notification inbox while open.
+  // Background/mobile push delivery requires Web Push or FCM setup beyond this demo.
+  useEffect(() => {
+    if (!isAuthenticated || role !== 'parent' || !currentUser?.id) {
+      setParentFocusNotice(null);
+      return;
+    }
+    let cancelled = false;
+    let lastNoticeId = '';
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/notifications?recipientRole=parent&recipientId=${encodeURIComponent(currentUser.id)}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const notice = (data.notifications || []).find((item: any) =>
+          (item.category === 'focus' || item.category === 'alert') && !item.read
+        );
+        if (!cancelled && notice) {
+          setParentFocusNotice({ title: notice.title, message: notice.message });
+          if (notice.id !== lastNoticeId) {
+            lastNoticeId = notice.id;
+            if ('Notification' in window && Notification.permission === 'granted') {
+              try { new Notification(notice.title, { body: notice.message, tag: notice.id }); } catch {}
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Parent notification inbox is temporarily unavailable:', error);
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 10000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [isAuthenticated, role, currentUser?.id]);
 
   // Gamification state
   const [xpPoints, setXpPoints] = useState(() => {
@@ -539,6 +575,18 @@ export default function App() {
             </div>
           </div>
         </aside>
+
+        {role === 'parent' && parentFocusNotice && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm" role="status" aria-live="polite">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-extrabold">{parentFocusNotice.title}</p>
+              <p className="mt-1 text-xs leading-relaxed">{parentFocusNotice.message}</p>
+              <p className="mt-2 text-[10px] text-amber-800">Demo inbox alert. Keep the parent portal open; real lock-screen phone push requires push-service configuration.</p>
+            </div>
+            <button type="button" onClick={() => setParentFocusNotice(null)} className="rounded-lg px-2 py-1 text-xs font-bold hover:bg-amber-100" aria-label="Dismiss focus alert">Dismiss</button>
+          </div>
+        )}
 
         {/* Dynamic Center View Container */}
         <main className="flex-1 min-w-0">
