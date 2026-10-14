@@ -51,34 +51,20 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64: selectedImage,
-          question: taskQuery,
+          prompt: taskQuery,
           classNum: profile.classNum,
           subject: activeSubject,
-          targetLanguage: profile.tutorLanguage
+          language: profile.tutorLanguage
         })
       });
 
       const data = await res.json();
-      setResult(data.solution);
+      if (!res.ok) throw new Error(data.error || `Photo solver failed (HTTP ${res.status})`);
+      setResult(data.solution || 'The AI did not return a solution. Please try again.');
     } catch (err) {
-      console.warn('Vision solver fallback:', err);
-      setResult(`### 📸 Step-by-Step Textbook Doubt Solution
-**Class:** ${profile.classNum} | **Subject:** ${activeSubject} | **Language:** ${profile.tutorLanguage}
+      console.warn('Vision solver request failed:', err);
+      setResult(`Photo solver unavailable: ${err instanceof Error ? err.message : 'Please check the backend and Gemini configuration, then try again.'}`);
 
-1. **Problem Extracted:**
-   The diagram shows an electrical circuit network with parallel resistors (6 Ω and 3 Ω).
-
-2. **Governing Formula:**
-   For parallel resistors, equivalent resistance is given by:
-   $$\\frac{1}{R_{eq}} = \\frac{1}{R_1} + \\frac{1}{R_2}$$
-
-3. **Step-by-Step Calculation:**
-   - $\\frac{1}{R_{eq}} = \\frac{1}{6} + \\frac{1}{3}$
-   - Common denominator is 6: $\\frac{1 + 2}{6} = \\frac{3}{6} = \\frac{1}{2}$
-   - Invert both sides: $R_{eq} = 2\\,\\Omega$
-
-4. **Odisha Board Exam Tip:**
-   Always remember to invert the fraction at the final step! Many students write 1/2 Ω instead of 2 Ω.`);
     } finally {
       setIsAnalyzing(false);
     }
