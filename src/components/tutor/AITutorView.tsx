@@ -452,7 +452,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
         toolUsed: `GeminiAgent.${actionType}(class: ${profile.classNum}, lang: ${profile.tutorLanguage})`,
         outcome: data.isDemo
           ? 'Formulated scaffolded answer using local pedagogical agent engine'
-          : 'Answer synthesized via Gemini 2.5 Flash model',
+          : 'Answer synthesized via Gemini 3.8 Flash model',
         nextRecommendedAction: actionType === 'explain_simply' ? 'show_steps' : 'generate_quiz'
       };
 
@@ -660,7 +660,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
-                          Live AI • Gemini 2.5 Flash
+                          Live AI • Gemini 3.8 Flash
                         </span>
                       )}
                     </div>

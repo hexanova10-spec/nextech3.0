@@ -483,7 +483,7 @@ app.get('/api/ai/status', (_req, res) => {
   res.json({
     configured: Boolean(aiClient),
     provider: 'Google Gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     mode: aiClient ? 'live' : 'demo',
     message: aiClient
       ? 'Gemini is configured. Requests still depend on provider availability and quota.'
@@ -510,7 +510,7 @@ app.get('/api/health', async (req, res) => {
     aiAvailable: Boolean(aiClient),
     app: 'PATHASHALA AI',
     version: '2.0.0',
-    mode: aiClient ? 'Live AI (Gemini 2.5 Flash)' : 'Demo Agentic Engine',
+    mode: aiClient ? 'Live AI (Gemini 3.8 Flash)' : 'Demo Agentic Engine',
     database,
     databaseConnected
   });
@@ -1085,7 +1085,7 @@ app.post('/api/gemini/tutor', async (req, res) => {
       }
 
       const response = await aiClient.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: parts,
         config: { temperature: 0.35, maxOutputTokens: 4096 }
       });
@@ -1094,7 +1094,7 @@ app.post('/api/gemini/tutor', async (req, res) => {
       if (responseText) {
         return res.json({
           answer: responseText,
-          source: 'gemini-2.5-flash',
+          source: 'gemini-3.8-flash',
           isDemo: false,
           language: targetLanguage,
           classNum,
@@ -1102,7 +1102,7 @@ app.post('/api/gemini/tutor', async (req, res) => {
         });
       }
     } catch (err: any) {
-      console.warn('Gemini live call error, falling back to agentic demo engine:', err?.message);
+      console.warn('Gemini live call failed:', err?.message);
     }
   }
 
@@ -1139,7 +1139,7 @@ app.post('/api/gemini/vision', async (req, res) => {
       const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
       const response = await aiClient.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: [
           {
             text: `You are PATHASHALA AI textbook scanner. The student is in Class ${classNum}, studying ${subject}.
@@ -1165,7 +1165,7 @@ Additional Student Request: ${prompt || 'Solve step by step'}`
           solution: response.text,
           detectedTopic: `${subject} Textbook Problem`,
           isDemo: false,
-          source: 'gemini-2.5-flash'
+          source: 'gemini-3.8-flash'
         });
       }
     } catch (e: any) {
