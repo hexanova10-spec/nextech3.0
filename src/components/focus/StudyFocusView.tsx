@@ -631,11 +631,34 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
               <div className="space-y-2">
                 <div className="aspect-video bg-black rounded-2xl overflow-hidden relative border border-[#D5E9DC]">
                   <video
-                    ref={videoRef}
+                    ref={(element) => {
+                      // Attach the stream exactly when React mounts this conditional element.
+                      videoRef.current = element;
+                      if (element && cameraStream) {
+                        if (element.srcObject !== cameraStream) element.srcObject = cameraStream;
+                        void element.play().catch((error) => {
+                          console.warn('Camera preview could not start:', error);
+                          setInterruptionNotice('Camera permission was granted, but Chrome could not start the video preview. Close other apps using the camera, then turn Presence Check off and on again.');
+                        });
+                      }
+                    }}
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-full object-cover"
+                    onLoadedMetadata={(event) => {
+                      const video = event.currentTarget;
+                      if (video.videoWidth === 0 || video.videoHeight === 0) {
+                        setInterruptionNotice('Camera opened but has not supplied video frames yet. Turn Presence Check off and on again, and close other apps using the camera.');
+                      } else {
+                        void video.play().catch((error) => {
+                          console.warn('Camera preview play failed after metadata:', error);
+                          setInterruptionNotice('Camera is connected but playback failed. Turn Presence Check off and on again.');
+                        });
+                      }
+                    }}
+                    onPlaying={() => setInterruptionNotice(null)}
+                    onError={() => setInterruptionNotice('The camera stream could not be rendered. Turn Presence Check off and on again; if it remains black, check Chrome camera selection and close other apps using it.')}
+                    className="block w-full h-full object-cover"
                   />
                   <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-mono flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
