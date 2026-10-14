@@ -1024,24 +1024,33 @@ Pedagogical Rules:
 3. Keep tone respectful, encouraging, and academically accurate.`;
 }
 
-// Retry temporary Gemini capacity and rate-limit failures with bounded exponential backoff.
-async function withGeminiRetry<T>(operation: () => Promise<T>): Promise<T> {
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await operation();
-    } catch (error: any) {
-      const status = Number(error?.status || error?.code || error?.error?.code);
-      const message = String(error?.message || error?.error?.message || '');
-      const transient = [429, 500, 502, 503, 504].includes(status) ||
-        /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|rate.?limit/i.test(message);
-      if (!transient || attempt === maxAttempts) throw error;
-      const delayMs = 700 * (2 ** (attempt - 1));
-      console.warn(`Gemini temporary failure (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms.`);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+// Try the primary Gemini model, then compatible stable fallbacks during temporary capacity errors.
+async function generateWithGeminiFallback(request: { contents: any; config?: any }) {
+  const models = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+  let lastError: any;
+  for (const model of models) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await aiClient!.models.generateContent({ model, ...request });
+        return { response, model };
+      } catch (error: any) {
+        lastError = error;
+        const status = Number(error?.status || error?.code || error?.error?.code);
+        const message = String(error?.message || error?.error?.message || '');
+        const transient = [408, 429, 500, 502, 503, 504].includes(status) ||
+          /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|rate.?limit/i.test(message);
+        if (!transient) throw error;
+        if (attempt < 2) {
+          const delayMs = 700 * attempt;
+          console.warn(`Gemini model ${model} temporary failure (attempt ${attempt}/2); retrying in ${delayMs}ms.`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        } else if (model !== models[models.length - 1]) {
+          console.warn(`Gemini model ${model} remains unavailable; trying the next compatible model.`);
+        }
+      }
     }
   }
-  throw new Error('Gemini request failed after retries.');
+  throw lastError || new Error('All configured Gemini models are temporarily unavailable.');
 }
 
 // AI Tutor chat endpoint
@@ -1104,17 +1113,16 @@ app.post('/api/gemini/tutor', async (req, res) => {
         });
       }
 
-      const response = await withGeminiRetry(() => aiClient.models.generateContent({
-        model: 'gemini-3.8-flash',
+      const { response, model: usedModel } = await generateWithGeminiFallback({
         contents: parts,
         config: { temperature: 0.35, maxOutputTokens: 4096 }
-      }));
+      });
 
       const responseText = response.text;
       if (responseText) {
         return res.json({
           answer: responseText,
-          source: 'gemini-3.8-flash',
+          source: usedModel,
           isDemo: false,
           language: targetLanguage,
           classNum,
@@ -1158,8 +1166,7 @@ app.post('/api/gemini/vision', async (req, res) => {
       const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
       const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
-      const response = await withGeminiRetry(() => aiClient.models.generateContent({
-        model: 'gemini-3.8-flash',
+      const { response, model: usedModel } = await generateWithGeminiFallback({
         contents: [
           {
             text: `You are PATHASHALA AI textbook scanner. The student is in Class ${classNum}, studying ${subject}.
@@ -1178,14 +1185,14 @@ Additional Student Request: ${prompt || 'Solve step by step'}`
             }
           }
         ]
-      }));
+      });
 
       if (response.text) {
         return res.json({
           solution: response.text,
           detectedTopic: `${subject} Textbook Problem`,
           isDemo: false,
-          source: 'gemini-3.8-flash'
+          source: usedModel
         });
       }
     } catch (e: any) {
