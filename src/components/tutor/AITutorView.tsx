@@ -668,7 +668,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
-                          Live AI • Gemini 3.8 Flash
+                          Live AI • Gemini 2.5 Flash
                         </span>
                       )}
                     </div>
