@@ -478,6 +478,19 @@ app.use(async (req, res, next) => {
 // ==========================================
 
 // Health check endpoint
+app.get('/api/ai/status', (_req, res) => {
+  // Never return the key or connection details; expose only safe readiness information.
+  res.json({
+    configured: Boolean(aiClient),
+    provider: 'Google Gemini',
+    model: 'gemini-2.5-flash',
+    mode: aiClient ? 'live' : 'demo',
+    message: aiClient
+      ? 'Gemini is configured. Requests still depend on provider availability and quota.'
+      : 'GEMINI_API_KEY is missing or looks like a placeholder on the backend.'
+  });
+});
+
 app.get('/api/health', async (req, res) => {
   let databaseConnected = false;
   let database = 'Local JSON fallback (DATABASE_URL is not configured)';
@@ -973,12 +986,23 @@ function buildSystemInstruction(
       'SPECIFIC ACTION: Format as a strict Step-by-Step procedural derivation or numerical calculation with given values, formula used, substitution, calculation, and final result with units.';
   } else if (action === 'generate_quiz') {
     actionGuidance =
-      'SPECIFIC ACTION: Generate 2 high-quality multiple choice questions (with 4 options each) based on this concept, suitable for Class ' +
-      classNum +
-      ', along with the correct answer and a brief explanation.';
+      'SPECIFIC ACTION: Generate the number of high-quality multiple-choice questions requested by the user (default to 2 if no count is specified), with four options each, correct answers, and brief explanations, suitable for Class ' +
+      classNum + '.';
   } else if (action === 'save_notes') {
     actionGuidance =
       'SPECIFIC ACTION: Format as crisp, bulleted revision study notes highlighting Key Definition, Must-Remember Formula, and High-Yield Board Exam Points.';
+  } else if (action === 'lesson_plan') {
+    actionGuidance =
+      'SPECIFIC ACTION: Produce a practical 45-minute lesson plan with measurable learning objectives, materials, timed teacher/student activities, checks for understanding, differentiation, recap, and homework.';
+  } else if (action === 'worksheet') {
+    actionGuidance =
+      'SPECIFIC ACTION: Produce a printable worksheet with clear instructions, varied age-appropriate questions, marks per question, a total marks line, and a separate answer key at the end.';
+  } else if (action === 'multilingual') {
+    actionGuidance =
+      'SPECIFIC ACTION: Teach in the requested target language using authentic script, retain important English technical terms in parentheses, and finish with a short bilingual glossary and recap.';
+  } else if (action === 'grade_homework') {
+    actionGuidance =
+      'SPECIFIC ACTION: Evaluate the supplied student answer fairly against the question and rubric. Return a suggested score, what is correct, what needs improvement, specific feedback, and a model answer. Never claim the teacher has finalized the grade.';
   }
 
   const isUrdu = targetLanguage.toLowerCase() === 'urdu';
@@ -1013,17 +1037,31 @@ app.post('/api/gemini/tutor', async (req, res) => {
     imageBase64
   } = req.body;
 
-  if (!question && !imageBase64 && !action) {
-    return res.status(400).json({ error: 'Question or action is required' });
+  if ((!question || typeof question !== 'string' || !question.trim()) && !imageBase64) {
+    return res.status(400).json({ error: 'Enter a question or attach an image before asking the AI tutor.' });
+  }
+  if (typeof question === 'string' && question.length > 12000) {
+    return res.status(413).json({ error: 'Your question is too long. Please keep it under 12,000 characters.' });
+  }
+  const numericClass = Number(classNum);
+  if (!Number.isInteger(numericClass) || numericClass < 1 || numericClass > 12) {
+    return res.status(400).json({ error: 'Class must be a number from 1 to 12.' });
+  }
+  const supportedActions = ['explain_concept', 'explain_simply', 'explain_detail', 'give_example', 'show_steps', 'generate_quiz', 'save_notes', 'lesson_plan', 'worksheet', 'multilingual', 'grade_homework'];
+  if (typeof action !== 'string' || !supportedActions.includes(action)) {
+    return res.status(400).json({ error: 'Unsupported AI tool action.' });
+  }
+  if (imageBase64 && (typeof imageBase64 !== 'string' || !/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(imageBase64))) {
+    return res.status(400).json({ error: 'Attach a PNG, JPG, or WebP image.' });
   }
 
-  const queryText = question || `Action: ${action} for ${subject}`;
+  const queryText = (typeof question === 'string' && question.trim()) ? question.trim() : `Action: ${action} for ${subject}`;
   const systemInstruction = buildSystemInstruction(
-    Number(classNum),
-    subject,
-    board,
-    targetLanguage,
-    textbookLanguage,
+    numericClass,
+    String(subject).slice(0, 100),
+    String(board).slice(0, 100),
+    String(targetLanguage).slice(0, 60),
+    String(textbookLanguage).slice(0, 60),
     action
   );
 
@@ -1048,7 +1086,8 @@ app.post('/api/gemini/tutor', async (req, res) => {
 
       const response = await aiClient.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: parts
+        contents: parts,
+        config: { temperature: 0.35, maxOutputTokens: 4096 }
       });
 
       const responseText = response.text;
@@ -1088,8 +1127,15 @@ app.post('/api/gemini/tutor', async (req, res) => {
 app.post('/api/gemini/vision', async (req, res) => {
   const { imageBase64, classNum = 10, subject = 'Physics', language = 'Odia', prompt } = req.body;
 
-  if (!imageBase64) {
-    return res.status(400).json({ error: 'Image base64 data is required' });
+  if (typeof imageBase64 !== 'string' || !/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(imageBase64)) {
+    return res.status(400).json({ error: 'Upload a PNG, JPG, or WebP image to solve a textbook question.' });
+  }
+  if (imageBase64.length > 12_000_000) {
+    return res.status(413).json({ error: 'Image is too large. Please choose a smaller image (under about 9 MB).' });
+  }
+  const numericClass = Number(classNum);
+  if (!Number.isInteger(numericClass) || numericClass < 1 || numericClass > 12) {
+    return res.status(400).json({ error: 'Class must be a number from 1 to 12.' });
   }
 
   if (aiClient) {
@@ -1133,27 +1179,8 @@ Additional Student Request: ${prompt || 'Solve step by step'}`
     }
   }
 
-  return res.json({
-    solution: `### 📸 Textbook Doubt Solution (Class ${classNum} • ${subject})
-
-**Detected Question:**
-*A 6V battery is connected in series with a resistor R. An ammeter reads 0.25 A. Calculate the value of R and the electrical power dissipated.*
-
-#### Step 1: Given Values
-- Potential Difference ($V$) = $6\\text{ V}$
-- Current ($I$) = $0.25\\text{ A}$
-
-#### Step 2: Formula & Calculation
-Using Ohm's Law:
-$$R = \\frac{V}{I} = \\frac{6\\text{ V}}{0.25\\text{ A}} = 24\\ \\Omega$$
-
-Electrical Power:
-$$P = V \\times I = 6 \\times 0.25 = 1.5\\text{ Watts}$$
-
-#### Final Answer:
-- Resistance: **$24\\ \\Omega$**
-- Power Dissipated: **$1.5\\text{ W}$**`,
-    detectedTopic: 'Ohm’s Law & Power Dissipation',
+  return res.status(503).json({
+    error: 'Live image analysis is not available right now. Configure a valid GEMINI_API_KEY on the backend, then try again. No answer was generated from the image.',
     isDemo: true,
     source: 'offline-agent-engine'
   });
