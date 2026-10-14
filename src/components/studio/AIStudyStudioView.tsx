@@ -36,7 +36,7 @@ export const AIStudyStudioView: React.FC<AIStudyStudioViewProps> = ({ profile, a
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [flashcardFlipped, setFlashcardFlipped] = useState<number | null>(null);
 
-  const mindMapBranches = useMemo(() => mindMapEntries.split(/[\\n,;]+/).map((entry) => entry.trim()).filter(Boolean).slice(0, 12), [mindMapEntries]);
+  const mindMapBranches = useMemo(() => mindMapEntries.split(/[\n,;]+/).map((entry) => entry.trim()).filter(Boolean).slice(0, 12), [mindMapEntries]);
   const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`Class ${profile.classNum} ${activeSubject} ${topic} lesson`)}`;
   const conceptVideoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${activeSubject} ${topic} explanation for students`)}`;
   const revisionVideoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`Class ${profile.classNum} ${activeSubject} ${topic} revision`)}`;
