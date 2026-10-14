@@ -12,8 +12,16 @@ import {
   BookOpen,
   ArrowRight,
   ShieldCheck,
-  Clock
+  Clock,
+  Video,
+  Download,
+  PlayCircle
 } from 'lucide-react';
+
+interface ClassRecording { id: string; title: string; classNum: number; subject: string; videoUrl: string; teacherName?: string; createdAt?: string; }
+
+const RECORDING_CACHE = 'pathashala-class-recordings-v1';
+const RECORDINGS_KEY = 'pathashala_recordings_metadata';
 
 interface OfflineCentreViewProps {
   profile: StudentProfile;
@@ -32,6 +40,11 @@ export const OfflineCentreView: React.FC<OfflineCentreViewProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
   const [activeLesson, setActiveLesson] = useState<OfflineLesson | null>(null);
+  const [recordings, setRecordings] = useState<ClassRecording[]>([]);
+  const [cachedRecordingIds, setCachedRecordingIds] = useState<string[]>([]);
+  const [activeRecording, setActiveRecording] = useState<{ id: string; title: string; src: string } | null>(null);
+  const [recordingStatus, setRecordingStatus] = useState<string | null>(null);
+  const [recordingBusyId, setRecordingBusyId] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -47,8 +60,62 @@ export const OfflineCentreView: React.FC<OfflineCentreViewProps> = ({
   };
 
   useEffect(() => {
-    loadData();
+    void loadData();
+    let cancelled = false;
+    const loadRecordings = async () => {
+      try {
+        const saved = localStorage.getItem(RECORDINGS_KEY);
+        const localRecords: ClassRecording[] = saved ? JSON.parse(saved) : [];
+        if (!cancelled) setRecordings(localRecords);
+        if (!navigator.onLine) return;
+        const response = await fetch('/api/recordings');
+        if (!response.ok) throw new Error(`Recording API returned HTTP ${response.status}`);
+        const data = await response.json();
+        const serverRecords: ClassRecording[] = Array.isArray(data.recordings) ? data.recordings : [];
+        const merged = [...serverRecords, ...localRecords.filter((local) => !serverRecords.some((server) => server.id === local.id))];
+        localStorage.setItem(RECORDINGS_KEY, JSON.stringify(merged));
+        if (!cancelled) setRecordings(merged);
+      } catch (error) {
+        console.warn('Class recordings are using locally saved metadata:', error);
+      }
+    };
+    void loadRecordings();
+    return () => { cancelled = true; };
   }, []);
+
+  const handleCacheRecording = async (recording: ClassRecording) => {
+    setRecordingBusyId(recording.id);
+    setRecordingStatus(null);
+    try {
+      const response = await fetch(recording.videoUrl);
+      if (!response.ok || response.type === 'opaque') throw new Error('The video host blocked downloading this video. Use a direct MP4/WebM URL that permits browser access.');
+      const cache = await caches.open(RECORDING_CACHE);
+      await cache.put(recording.videoUrl, response.clone());
+      setCachedRecordingIds((prev) => prev.includes(recording.id) ? prev : [...prev, recording.id]);
+      setRecordingStatus(`Saved “${recording.title}” for offline playback on this device.`);
+    } catch (error) {
+      setRecordingStatus(error instanceof Error ? error.message : 'Could not cache this video. Check the video URL and connection.');
+    } finally {
+      setRecordingBusyId(null);
+    }
+  };
+
+  const handlePlayRecording = async (recording: ClassRecording) => {
+    try {
+      const cached = await caches.match(recording.videoUrl);
+      if (cached) {
+        const blob = await cached.blob();
+        setActiveRecording({ id: recording.id, title: recording.title, src: URL.createObjectURL(blob) });
+      } else if (navigator.onLine && !isSimulatedOffline) {
+        setActiveRecording({ id: recording.id, title: recording.title, src: recording.videoUrl });
+      } else {
+        setRecordingStatus('This recording is not saved on this device yet. Connect to the internet and choose Save for Offline first.');
+      }
+    } catch {
+      setRecordingStatus('Could not open this recording. Save it for offline playback while connected.');
+    }
+  };
+
 
   const handleSyncNow = async () => {
     setIsSyncing(true);
@@ -178,6 +245,14 @@ export const OfflineCentreView: React.FC<OfflineCentreViewProps> = ({
             <li>Cloud synchronisation across other devices.</li>
           </ul>
         </div>
+      </div>
+
+      {/* Shared class recordings with device-side offline video cache */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center gap-2"><Video className="w-5 h-5 text-indigo-600" /><div><h3 className="font-bold text-slate-900 text-sm">Class Recording Videos</h3><p className="text-xs text-slate-500">Recordings published by your teacher. Save a video while online to watch it without internet on this device.</p></div></div>
+        {recordingStatus && <p role="status" className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-xs text-indigo-800">{recordingStatus}</p>}
+        {recordings.filter((recording) => profile.assignedClasses.includes(recording.classNum)).length === 0 ? <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No recordings published for your assigned classes yet.</p> : <div className="space-y-3">{recordings.filter((recording) => profile.assignedClasses.includes(recording.classNum)).map((recording) => <div key={recording.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4"><div><p className="font-bold text-sm text-slate-900">{recording.title}</p><p className="mt-1 text-xs text-slate-500">Class {recording.classNum} • {recording.subject}{recording.teacherName ? ` • ${recording.teacherName}` : ''}</p><p className="mt-1 text-[11px] text-emerald-700">{cachedRecordingIds.includes(recording.id) ? 'Saved for offline playback' : 'Not saved offline yet'}</p></div><div className="flex gap-2"><button type="button" onClick={() => void handlePlayRecording(recording)} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white flex items-center gap-1"><PlayCircle className="w-4 h-4" /> Play</button><button type="button" disabled={recordingBusyId === recording.id || cachedRecordingIds.includes(recording.id)} onClick={() => void handleCacheRecording(recording)} className="rounded-xl border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 disabled:opacity-50 flex items-center gap-1"><Download className="w-4 h-4" />{recordingBusyId === recording.id ? 'Saving…' : cachedRecordingIds.includes(recording.id) ? 'Saved' : 'Save offline'}</button></div></div>)}</div>}
+        {activeRecording && <div className="rounded-2xl border border-indigo-200 bg-slate-950 p-3 space-y-2"><div className="flex justify-between items-center text-white text-xs"><span className="font-bold">{activeRecording.title}</span><button type="button" onClick={() => { URL.revokeObjectURL(activeRecording.src.startsWith('blob:') ? activeRecording.src : ''); setActiveRecording(null); }} className="rounded-lg bg-white/15 px-2 py-1">Close video</button></div><video key={activeRecording.src} controls playsInline preload="metadata" className="w-full max-h-[420px] rounded-xl" src={activeRecording.src}>Your browser cannot play this video format.</video></div>}
       </div>
 
       {/* Cached Lessons List */}
