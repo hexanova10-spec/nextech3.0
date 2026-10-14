@@ -235,6 +235,18 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
     };
   }, [sessionActive, isOnBreak, profile.name]);
 
+  // Browser-level soft lock: warn before accidental tab/window close while studying.
+  // This is not a kiosk lock; browsers and operating systems can always override it.
+  useEffect(() => {
+    if (!sessionActive || isOnBreak) return;
+    const warnBeforeExit = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeExit);
+    return () => window.removeEventListener('beforeunload', warnBeforeExit);
+  }, [sessionActive, isOnBreak]);
+
   // Cleanup camera stream
   useEffect(() => {
     return () => {
