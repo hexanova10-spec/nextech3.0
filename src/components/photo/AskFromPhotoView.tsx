@@ -8,6 +8,26 @@ interface AskFromPhotoViewProps {
   activeSubject: string;
 }
 
+// Convert common AI Markdown/LaTeX output into clean, readable text without showing raw symbols.
+const formatPhotoAnswer = (answer: string): string => {
+  return answer
+    .replace(/\\\\?frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
+    .replace(/\\\\?(?:Omega|omega)/g, 'Ω')
+    .replace(/\\\\times/g, '×')
+    .replace(/\\\\cdot/g, '·')
+    .replace(/\\\\(?:text|mathrm)\{([^{}]*)\}/g, '$1')
+    .replace(/\\\\(?:left|right)/g, '')
+    .replace(/\\\\(?:,|;|!|quad|qquad)/g, ' ')
+    .replace(/\$\$?/g, '')
+    .replace(/\\\\[()[\]]/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/[{}]/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
 export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, activeSubject }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [taskQuery, setTaskQuery] = useState('Give a simple answer in easy language');
@@ -312,7 +332,7 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-sm leading-relaxed whitespace-pre-wrap text-slate-800">
-            {result}
+            {formatPhotoAnswer(result)}
           </div>
         </div>
       )}
