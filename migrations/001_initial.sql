@@ -2,6 +2,12 @@
 -- Full application records are retained in JSONB payloads while frequently queried
 -- fields are indexed relational columns for class/role/assignment lookups.
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL,
