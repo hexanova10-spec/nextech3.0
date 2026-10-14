@@ -39,8 +39,17 @@ interface AITutorViewProps {
   onNavigateToPhoto: () => void;
 }
 
-const cleanTutorAnswer = (answer: string): string =>
-  answer
+const cleanTutorAnswer = (answer: string): string => {
+  const subscriptDigits: Record<string, string> = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'
+  };
+  const superscriptDigits: Record<string, string> = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
+  };
+
+  return answer
     .replace(/\\\\([*_#])/g, '$1')
     .replace(/\\\\(?:text|mathrm)\{([^{}]*)\}/g, '$1')
     .replace(/\\\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
@@ -57,7 +66,16 @@ const cleanTutorAnswer = (answer: string): string =>
     .replace(/\\n/g, '\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
+    // Convert chemical formula numbers to Unicode subscripts: CO₂, H₂O, C₆H₁₂O₆.
+    .replace(/\b(?:[A-Z][a-z]?\d*){1,8}\b/g, formula =>
+      formula.replace(/\d/g, digit => subscriptDigits[digit] || digit)
+    )
+    // Display simple ionic charges as superscripts, e.g. H⁺, O²⁻.
+    .replace(/\b([A-Za-z₀-₉]+)([₀-₉]*)([+-])\b/g, (_m, base: string, digits: string, charge: string) =>
+      base + digits + (charge === '+' ? '⁺' : '⁻')
+    )
     .trim();
+};
 
 const STORAGE_CHAT_KEY = 'pathashala_chat_history_v2';
 
