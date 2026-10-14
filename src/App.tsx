@@ -370,7 +370,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsNotificationDrawerOpen(true)}
-              className="p-2 rounded-xl bg-[#F4FBF6] text-[#006A4E] border border-[#D5E9DC] relative"
+              className="p-2 rounded-xl bg-[#F4FBF6] text-[#006A4E] border border-[#D5E9DC] relative lg:hidden"
             >
               <Bell className="w-4 h-4" />
               <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center">
@@ -379,14 +379,14 @@ export default function App() {
             </button>
             <button
               onClick={() => setIsLanguageModalOpen(true)}
-              className="p-2 rounded-xl bg-[#DFF3E8] text-[#006A4E] text-xs font-bold"
+              className="p-2 rounded-xl bg-[#DFF3E8] text-[#006A4E] text-xs font-bold lg:hidden"
               title="Language Centre"
             >
               <Globe className="w-4 h-4" />
             </button>
             <button
               onClick={() => setIsClassModalOpen(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-[#DFF3E8] text-[#006A4E] text-xs font-bold"
+              className="px-2.5 py-1.5 rounded-xl bg-[#DFF3E8] text-[#006A4E] text-xs font-bold lg:hidden"
               title="Class Selector"
             >
               Cl. {profile.classNum}
