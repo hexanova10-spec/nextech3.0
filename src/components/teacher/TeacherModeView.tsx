@@ -55,55 +55,38 @@ export const TeacherModeView: React.FC<TeacherModeViewProps> = ({
     { concept: 'Series vs Parallel equivalent formulas', affectedStudents: '8 of 38 (21%)', recommendation: 'Review resistor schematic circuit flashcards.' }
   ];
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setIsGenerating(true);
-    setTimeout(() => {
+    setOutput(null);
+    const tasks: Record<string, string> = {
+      lesson_plan: `Create a complete 45-minute lesson plan for Class ${selectedClass} ${subject} on “${topic}”. Include learning objectives, materials, timed teaching steps, local real-life examples from Odisha/India, formative assessment, differentiation, and homework.`,
+      worksheet: `Create a printable Class ${selectedClass} ${subject} worksheet on “${topic}” for 30 minutes and 20 marks. Include short answers, conceptual questions, numericals/application questions, and a separate answer key.`,
+      quiz: `Create a quiz for Class ${selectedClass} ${subject} on “${topic}” with 5 multiple-choice questions, four options each, correct answers, and short explanations.`,
+      multilingual: `Create a classroom teaching resource for Class ${selectedClass} ${subject} on “${topic}” in ${language}. Include simple explanation, English technical terms in brackets, local examples, and a short bilingual recap.`
+    };
+    try {
+      const response = await fetch('/api/gemini/tutor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: tasks[toolAction],
+          classNum: selectedClass,
+          subject,
+          board: 'Odisha State Board (BSE) / CBSE',
+          targetLanguage: language,
+          textbookLanguage: 'English',
+          action: toolAction === 'quiz' ? 'generate_quiz' : 'explain_detail'
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `AI request failed (HTTP ${response.status})`);
+      const notice = data.isDemo ? `\n\n---\n**Demo mode:** ${data.demoNotice || 'Configure GEMINI_API_KEY to enable live Gemini responses.'}` : '';
+      setOutput(`${data.answer || 'The AI did not return an answer.'}${notice}`);
+    } catch (error) {
+      setOutput(error instanceof Error ? `AI request failed: ${error.message}. Confirm the backend is running and GEMINI_API_KEY is configured.` : 'AI request failed. Confirm the backend is running and GEMINI_API_KEY is configured.');
+    } finally {
       setIsGenerating(false);
-      if (toolAction === 'lesson_plan') {
-        setOutput(`### 📋 Comprehensive Lesson Outline (Class ${selectedClass} • ${subject})
-**Topic:** ${topic}
-**Target Medium / Language:** ${language} & English
-**Estimated Duration:** 45 Minutes
-
-#### 1. Learning Objectives (ଶିକ୍ଷଣ ଲକ୍ଷ୍ୟ)
-- Differentiate between electric current ($I$), voltage ($V$), and resistance ($R$).
-- Graphically plot V-I curve showing linear slope $R = V/I$.
-- Connect concepts with local solar home lighting systems in rural Odisha.
-
-#### 2. 5E Pedagogical Plan
-- **Engage (5 mins):** Flash a dry cell battery and light bulb. Why does adding resistors dim the bulb?
-- **Explore (15 mins):** Circuit simulation connecting ammeter in series, voltmeter in parallel.
-- **Explain (15 mins):** Derivation of $V = IR$ with SI units ($\Omega$, Volts, Amperes).
-- **Elaborate (5 mins):** Real-world safety fuses and household wiring.
-- **Evaluate (5 mins):** 2-minute diagnostic exit slip in ${language}.
-
-#### 3. Homework & Board Assessment Task
-Solve Exercise Questions 1 to 4 from NCERT / BSE Odisha text.`);
-      } else if (toolAction === 'worksheet') {
-        setOutput(`### 📝 Class Revision Worksheet
-**School Board:** Odisha BSE / CBSE | **Class:** ${selectedClass} | **Subject:** ${subject}
-**Topic:** ${topic} | **Time Allowed:** 30 Mins | **Max Marks:** 20
-
-#### Part A: Very Short Answer (1 Mark each)
-1. What is the SI unit of electric resistance?
-2. How is an ammeter connected in a circuit (series or parallel)?
-
-#### Part B: Conceptual Questions (2 Marks each)
-3. State Ohm's law and mention the physical condition that must remain constant.
-4. Why is tungsten used almost exclusively for filament of incandescent lamps?
-
-#### Part C: Numerical Problem (4 Marks)
-5. A 6V battery is connected across an unknown resistor. A current of 2.5 mA flows. Calculate the resistance in kΩ.`);
-      } else {
-        setOutput(`### 🌟 Multilingual Teaching Resource (${language} & English)
-**Class ${selectedClass} ${subject}:** ${topic}
-
-- **English:** Ohm's Law states that current through a conductor between two points is directly proportional to voltage across two points at constant temperature.
-- **${language}:** ସ୍ଥିର ତାପମାତ୍ରାରେ ଏକ ପରିବାହୀ ଦେଇ ପ୍ରବାହିତ ବିଦ୍ୟୁତ ପ୍ରବାହ, ତା’ର ଦୁଇ ପ୍ରାନ୍ତ ମଧ୍ୟରେ ଥିବା ବିଭବାନ୍ତର ସହିତ ସମାନୁପାତୀ।
-- **Key Formula:**
-  $$V = I \\times R$$`);
-      }
-    }, 600);
+    }
   };
 
   return (
