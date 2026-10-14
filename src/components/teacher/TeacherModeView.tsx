@@ -368,6 +368,16 @@ export const TeacherModeView: React.FC<TeacherModeViewProps> = ({
                 Board Worksheet
               </button>
               <button
+                onClick={() => setToolAction('quiz')}
+                className={`px-4 py-2 rounded-xl transition ${
+                  toolAction === 'quiz'
+                    ? 'bg-[#006A4E] text-white'
+                    : 'bg-[#F4FBF6] text-[#64776B] hover:bg-[#DFF3E8]'
+                }`}
+              >
+                Quick Quiz
+              </button>
+              <button
                 onClick={() => setToolAction('multilingual')}
                 className={`px-4 py-2 rounded-xl transition ${
                   toolAction === 'multilingual'
