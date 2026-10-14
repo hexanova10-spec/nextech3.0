@@ -515,6 +515,84 @@ app.post('/api/camera-alerts/:id/review', (req, res) => {
 });
 
 // ==========================================
+ // STUDY FOCUS EVENTS & PARENT NOTIFICATIONS
+ // Prototype delivery: notifications are stored in memory. Real phone push requires
+ // a service worker + Web Push/FCM credentials and an authenticated subscription.
+ // ==========================================
+
+app.post('/api/focus-events', (req, res) => {
+  const { studentId, studentName, sessionId, level, awaySeconds, reason } = req.body || {};
+  const student = db.users.find((u) => u.id === studentId && u.role === 'student');
+  if (!student) return res.status(400).json({ error: 'A valid studentId is required.' });
+
+  const seconds = Number(awaySeconds);
+  if (![60, 300, 600].includes(seconds) || !['student', 'parent', 'alarm'].includes(level)) {
+    return res.status(400).json({ error: 'Unsupported focus event.' });
+  }
+
+  const parent = db.users.find((u) => u.role === 'parent' && (u.linkedStudentIds || []).includes(student.id));
+  const now = new Date().toISOString();
+  const event = {
+    id: `FOCUS-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    studentId: student.id,
+    studentName: studentName || student.name,
+    sessionId: sessionId || 'FOCUS-SESSION',
+    level,
+    awaySeconds: seconds,
+    reason: typeof reason === 'string' ? reason.slice(0, 80) : 'window_not_focused',
+    createdAt: now
+  };
+
+  if (!db.focusEvents) db.focusEvents = [];
+  db.focusEvents.unshift(event);
+
+  const createNotification = (recipientRole, recipientId, title, message, category = 'focus') => {
+    db.notifications.unshift({
+      id: `NOTIF-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      recipientRole,
+      recipientId,
+      title,
+      message,
+      category,
+      timestamp: now,
+      read: false,
+      actionUrl: recipientRole === 'parent' ? '/parent' : '/focus-session'
+    });
+  };
+
+  if (seconds >= 60 && level === 'student') {
+    createNotification('student', student.id, 'Let’s return to learning', 'Your study window has been inactive for about 1 minute. Take a breath and resume when ready.');
+  }
+  if (seconds >= 300 && level === 'parent' && parent) {
+    createNotification('parent', parent.id, 'Study session needs a check-in', `${student.name}’s study window has been inactive for about 5 minutes. Please check in supportively.`);
+  }
+  if (seconds >= 600 && level === 'alarm') {
+    createNotification('student', student.id, 'Focus check-in', 'Your study window has been inactive for about 10 minutes. Please resume or end your session.');
+    if (parent) createNotification('parent', parent.id, 'Study session alert', `${student.name}’s study window has been inactive for about 10 minutes. Please check in.`, 'alert');
+  }
+
+  return res.json({ success: true, event, parentLinked: Boolean(parent) });
+});
+
+app.get('/api/notifications', (req, res) => {
+  const { recipientRole, recipientId } = req.query;
+  if (!recipientRole || !recipientId) {
+    return res.status(400).json({ error: 'recipientRole and recipientId are required.' });
+  }
+  const notifications = db.notifications.filter((n) =>
+    n.recipientRole === String(recipientRole) && n.recipientId === String(recipientId)
+  );
+  return res.json({ notifications });
+});
+
+app.post('/api/notifications/:id/read', (req, res) => {
+  const item = db.notifications.find((n) => n.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Notification not found.' });
+  item.read = true;
+  return res.json({ success: true, notification: item });
+});
+
+// ==========================================
 // TEACHER & PARENT REPORTS ENDPOINTS
 // ==========================================
 
