@@ -42,6 +42,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setClickPulse((pulse) => pulse + 1);
   };
 
+  const chooseRole = (nextRole: UserRole) => {
+    const account = DEMO_ACCOUNTS.find((item) => item.role === nextRole);
+    setRole(nextRole);
+    setError('');
+    if (account) {
+      setIdentifier(account.identifier);
+      setPassword(account.password);
+    }
+  };
+
   const chooseDemo = (account: typeof DEMO_ACCOUNTS[number]) => {
     setRole(account.role);
     setIdentifier(account.identifier);
@@ -160,14 +170,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full blur-3xl" style={{ background: copy.soft, opacity: .18 }} />
             <div className="relative">
               <div className="mb-8 flex items-start justify-between gap-4">
-                <div><p className="text-[10px] font-extrabold tracking-[.25em]" style={{ color: copy.accent }}>WELCOME TO YOUR WORLD</p><h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] sm:text-[2.2rem]">Let's begin<span style={{ color: copy.accent }}>.</span></h2><p className="mt-2 text-sm text-emerald-50/45">Your next discovery is one sign-in away.</p></div>
+                <div><p className="text-[10px] font-extrabold tracking-[.25em]" style={{ color: copy.accent }}>WELCOME TO YOUR WORLD</p><h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] sm:text-[2.2rem]">Let's begin<span style={{ color: copy.accent }}>.</span></h2><p className="mt-2 text-sm text-emerald-50/45">Sign in to your dedicated {role === 'student' ? 'student learning portal' : role === 'teacher' ? 'teacher classroom portal' : 'parent family portal'}.</p></div>
                 <div className="pl-breathe grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05]" style={{ color: copy.accent }}><Stars className="h-5 w-5" /></div>
               </div>
 
               <div className="mb-7 rounded-2xl border border-white/[0.08] bg-black/15 p-1.5">
                 <div className="grid grid-cols-3 gap-1">
                   {([{ id: 'student', icon: GraduationCap, label: 'Student' }, { id: 'teacher', icon: BookOpen, label: 'Teacher' }, { id: 'parent', icon: ShieldCheck, label: 'Parent' }] as const).map((item) => (
-                    <button key={item.id} type="button" onClick={() => { setRole(item.id); setError(''); }} className={`flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-xs font-bold transition-all duration-300 ${role === item.id ? 'pl-role-active scale-[1.02]' : 'pl-role-idle'}`}><item.icon className="h-4 w-4" /><span>{item.label}</span></button>
+                    <button key={item.id} type="button" onClick={() => chooseRole(item.id)} className={`flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-xs font-bold transition-all duration-300 ${role === item.id ? 'pl-role-active scale-[1.02]' : 'pl-role-idle'}`}><item.icon className="h-4 w-4" /><span>{item.label}</span></button>
                   ))}
                 </div>
               </div>
@@ -176,7 +186,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <label className="block"><span className="mb-2 block text-[11px] font-bold tracking-wide text-emerald-50/70">EMAIL OR SCHOOL ID</span><span className="pl-input flex items-center gap-3 rounded-2xl px-4"><Mail className="h-4 w-4 shrink-0" style={{ color: copy.accent }} /><input autoComplete="username" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="you@pathashala.edu" className="h-[3.65rem] min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25" /></span></label>
                 <label className="block"><span className="mb-2 block text-[11px] font-bold tracking-wide text-emerald-50/70">PASSWORD</span><span className="pl-input flex items-center gap-3 rounded-2xl px-4"><LockKeyhole className="h-4 w-4 shrink-0" style={{ color: copy.accent }} /><input autoComplete="current-password" required type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" className="h-[3.65rem] min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="rounded-lg p-1 text-white/45 transition hover:text-white">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                 {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
-                <button disabled={loading} type="submit" className="pl-submit group flex h-[3.7rem] w-full items-center justify-between rounded-2xl px-5 text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-60"><span className="flex items-center gap-2">{loading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Entering your space…</> : <>Enter your learning space <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" /></>}</span><span className="text-[10px] font-bold tracking-[.12em] opacity-60">LET'S GO</span></button>
+                <button disabled={loading} type="submit" className="pl-submit group flex h-[3.7rem] w-full items-center justify-between rounded-2xl px-5 text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-60"><span className="flex items-center gap-2">{loading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Entering your space…</> : <>Open {role === 'student' ? 'Student Dashboard' : role === 'teacher' ? 'Teacher Dashboard' : 'Parent Dashboard'} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" /></>}</span><span className="text-[10px] font-bold tracking-[.12em] opacity-60">LET'S GO</span></button>
               </form>
 
               <div className="mt-6 border-t border-white/[0.09] pt-5">
