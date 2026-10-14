@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserRole, User } from '../../types';
 import { DEMO_USERS } from '../../data/mockStore';
 import { INDIAN_LANGUAGES } from '../../data/languages';
@@ -33,6 +33,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSuccess
 }) => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
+
+  useEffect(() => {
+    if (isOpen) setMode(initialMode);
+  }, [isOpen, initialMode]);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -140,6 +144,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        if (data.token) localStorage.setItem('pathashala_token', data.token);
+        localStorage.setItem('pathashala_user', JSON.stringify(data.user));
         localStorage.setItem('pathashala_language', preferredLang);
         localStorage.setItem('pathashala_subject', preferredSubject);
         setSuccessMessage('Student account created successfully!');

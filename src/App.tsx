@@ -83,6 +83,7 @@ export default function App() {
 
   // Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -285,7 +286,12 @@ export default function App() {
     setIsMobileMenuOpen(false);
   };
 
-  if (!isAuthenticated) return <LoginPage onLoginSuccess={handleAuthSuccess} />;
+  if (!isAuthenticated) return (
+    <>
+      <LoginPage onLoginSuccess={handleAuthSuccess} onRegisterClick={() => { setAuthModalMode('register'); setIsAuthModalOpen(true); }} />
+      <AuthModal isOpen={isAuthModalOpen} initialMode={authModalMode} onClose={() => setIsAuthModalOpen(false)} onSuccess={handleAuthSuccess} />
+    </>
+  );
 
   return (
     <div
@@ -767,6 +773,7 @@ export default function App() {
       {/* 1. Auth Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
+        initialMode={authModalMode}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={handleAuthSuccess}
       />

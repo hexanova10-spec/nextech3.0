@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { QuizQuestion, StudentProfile } from '../../types';
 import { SAMPLE_QUIZZES } from '../../data/curriculum';
 import { offlineStorage } from '../../services/offlineStorage';
 import { CheckCircle2, XCircle, Award, HelpCircle, ArrowRight, RotateCcw, Sparkles, BookOpen, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
+
+const shuffleQuestions = <T,>(items: T[]): T[] => {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
 
 interface PracticeZoneViewProps {
   profile: StudentProfile;
@@ -20,18 +29,26 @@ export const PracticeZoneView: React.FC<PracticeZoneViewProps> = ({
   const [selectedDifficulty, setSelectedDifficulty] = useState<'All' | 'Beginner' | 'Easy' | 'Medium' | 'Advanced'>('All');
   const [practiceMode, setPracticeMode] = useState<'adaptive' | 'board_prep' | 'daily_challenge'>('adaptive');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionOrder, setQuestionOrder] = useState<QuizQuestion[]>(() => shuffleQuestions(SAMPLE_QUIZZES));
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [mistakesList, setMistakesList] = useState<{ question: string; concept: string; explanation: string }[]>([]);
 
   // Filter questions by class/subject/difficulty
-  const filteredQuestions = SAMPLE_QUIZZES.filter((q) => {
+  const filteredQuestions = questionOrder.filter((q) => {
     if (selectedDifficulty !== 'All' && q.difficulty !== selectedDifficulty) return false;
     return true;
   });
 
-  const activeQuestion = filteredQuestions[currentQuestionIndex] || SAMPLE_QUIZZES[0];
+  const activeQuestion = filteredQuestions[currentQuestionIndex] || questionOrder[0] || SAMPLE_QUIZZES[0];
+
+  useEffect(() => {
+    setQuestionOrder(shuffleQuestions(SAMPLE_QUIZZES));
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setIsAnswerSubmitted(false);
+  }, [activeSubject, profile.classNum, practiceMode]);
 
   const handleSelectOption = (index: number) => {
     if (isAnswerSubmitted) return;
@@ -80,6 +97,7 @@ export const PracticeZoneView: React.FC<PracticeZoneViewProps> = ({
     if (currentQuestionIndex < filteredQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
+      setQuestionOrder(shuffleQuestions(SAMPLE_QUIZZES));
       setCurrentQuestionIndex(0);
     }
   };

@@ -4,6 +4,7 @@ import type { User, UserRole } from '../../types';
 
 interface LoginPageProps {
   onLoginSuccess: (user: User, role: UserRole) => void;
+  onRegisterClick: () => void;
 }
 
 const DEMO_ACCOUNTS: { role: UserRole; label: string; identifier: string; password: string; name: string }[] = [
@@ -18,7 +19,7 @@ const ROLE_COPY: Record<UserRole, { eyebrow: string; title: string; accent: stri
   parent: { eyebrow: 'YOUR SPACE TO CONNECT', title: 'Be part of\nthe journey.', accent: '#B8D9FF', soft: '#4387D6', description: 'Celebrate progress and support every next step.' }
 };
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onRegisterClick }) => {
   const [role, setRole] = useState<UserRole>('student');
   const [identifier, setIdentifier] = useState('subha@pathashala.edu');
   const [password, setPassword] = useState('password123');
@@ -188,6 +189,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
                 <button disabled={loading} type="submit" className="pl-submit group flex h-[3.7rem] w-full items-center justify-between rounded-2xl px-5 text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-60"><span className="flex items-center gap-2">{loading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Entering your space…</> : <>Open {role === 'student' ? 'Student Dashboard' : role === 'teacher' ? 'Teacher Dashboard' : 'Parent Dashboard'} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" /></>}</span><span className="text-[10px] font-bold tracking-[.12em] opacity-60">LET'S GO</span></button>
               </form>
+
+              {role === 'student' && (
+                <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.06] p-4">
+                  <p className="text-sm font-bold text-white">New student?</p>
+                  <p className="mt-1 text-xs leading-5 text-white/50">Create your own account to save your learning preferences and progress.</p>
+                  <button type="button" onClick={onRegisterClick} className="mt-3 flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm font-extrabold transition hover:brightness-110" style={{ background: copy.accent, color: '#06271C' }}>
+                    Create Student Account <ArrowUpRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
 
               <div className="mt-6 border-t border-white/[0.09] pt-5">
                 <button type="button" onClick={() => setShowDemo(!showDemo)} className="flex w-full items-center justify-between text-left text-xs font-bold text-white/55 transition hover:text-white"><span className="flex items-center gap-2"><AudioWaveform className="h-4 w-4" style={{ color: copy.accent }} /> Explore a demo account</span><span>{showDemo ? '−' : '+'}</span></button>
