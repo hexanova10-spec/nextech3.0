@@ -398,10 +398,11 @@ app.post('/api/auth/register', (req, res) => {
 
   db.users.push(newUser);
 
-  return res.json({
+  const { password: _password, ...publicUser } = newUser;
+  return res.status(201).json({
     success: true,
-    user: newUser,
-    message: 'Student account registered successfully.'
+    user: publicUser,
+    message: 'Account created successfully.'
   });
 });
 
