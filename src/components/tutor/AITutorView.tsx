@@ -39,6 +39,26 @@ interface AITutorViewProps {
   onNavigateToPhoto: () => void;
 }
 
+const cleanTutorAnswer = (answer: string): string =>
+  answer
+    .replace(/\\\\([*_#])/g, '$1')
+    .replace(/\\\\(?:text|mathrm)\{([^{}]*)\}/g, '$1')
+    .replace(/\\\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
+    .replace(/\\\\(?:Omega|omega)/g, 'Ω')
+    .replace(/\\\\times/g, '×')
+    .replace(/\\\\cdot/g, '·')
+    .replace(/\\\\(?:left|right)/g, '')
+    .replace(/\\\\(?:,|;|!|quad|qquad)/g, ' ')
+    .replace(/\$\$?/g, '')
+    .replace(/\\\\[()[\]]/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/\\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
 const STORAGE_CHAT_KEY = 'pathashala_chat_history_v2';
 
 export const AITutorView: React.FC<AITutorViewProps> = ({
@@ -699,7 +719,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
                   </div>
                 )}
 
-                <div className="whitespace-pre-wrap font-sans space-y-2">{msg.text}</div>
+                <div className="whitespace-pre-wrap font-sans space-y-2">{cleanTutorAnswer(msg.text)}</div>
                 {msg.isDemo && msg.demoNotice && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-900">{msg.demoNotice}</div>}
 
                 <div
