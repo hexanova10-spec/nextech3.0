@@ -1024,6 +1024,26 @@ Pedagogical Rules:
 3. Keep tone respectful, encouraging, and academically accurate.`;
 }
 
+// Retry temporary Gemini capacity and rate-limit failures with bounded exponential backoff.
+async function withGeminiRetry<T>(operation: () => Promise<T>): Promise<T> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const status = Number(error?.status || error?.code || error?.error?.code);
+      const message = String(error?.message || error?.error?.message || '');
+      const transient = [429, 500, 502, 503, 504].includes(status) ||
+        /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|rate.?limit/i.test(message);
+      if (!transient || attempt === maxAttempts) throw error;
+      const delayMs = 700 * (2 ** (attempt - 1));
+      console.warn(`Gemini temporary failure (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms.`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error('Gemini request failed after retries.');
+}
+
 // AI Tutor chat endpoint
 app.post('/api/gemini/tutor', async (req, res) => {
   const {
@@ -1084,11 +1104,11 @@ app.post('/api/gemini/tutor', async (req, res) => {
         });
       }
 
-      const response = await aiClient.models.generateContent({
+      const response = await withGeminiRetry(() => aiClient.models.generateContent({
         model: 'gemini-3.8-flash',
         contents: parts,
         config: { temperature: 0.35, maxOutputTokens: 4096 }
-      });
+      }));
 
       const responseText = response.text;
       if (responseText) {
@@ -1138,7 +1158,7 @@ app.post('/api/gemini/vision', async (req, res) => {
       const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
       const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
-      const response = await aiClient.models.generateContent({
+      const response = await withGeminiRetry(() => aiClient.models.generateContent({
         model: 'gemini-3.8-flash',
         contents: [
           {
@@ -1158,7 +1178,7 @@ Additional Student Request: ${prompt || 'Solve step by step'}`
             }
           }
         ]
-      });
+      }));
 
       if (response.text) {
         return res.json({
