@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+# Local Pathashala prototype data (never commit learner records)
+.pathashala-data.json
+.pathashala-data.json.tmp
