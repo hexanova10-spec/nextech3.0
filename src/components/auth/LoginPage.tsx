@@ -64,25 +64,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <main onMouseMove={handlePointerMove} onMouseLeave={() => { setPointer({ x: -200, y: -200 }); setHeroTilt({ x: 0, y: 0 }); }} className="relative isolate min-h-screen overflow-hidden bg-[#F4FBF6] text-[#18352A] grid lg:grid-cols-[1.05fr_0.95fr]">
-      <div aria-hidden="true" className="pointer-events-none fixed z-40 h-48 w-48 rounded-full opacity-40 blur-3xl transition-[left,top] duration-150" style={{ left: pointer.x, top: pointer.y, transform: 'translate(-50%, -50%)', background: role === 'teacher' ? '#F59E0B' : role === 'parent' ? '#60A5FA' : '#34D399' }} />
+    <main onMouseMove={handlePointerMove} onMouseLeave={() => { setPointer({ x: -200, y: -200 }); setHeroTilt({ x: 0, y: 0 }); }} className="pathashala-login relative isolate min-h-screen overflow-hidden bg-[#F4FBF6] text-[#18352A] grid lg:grid-cols-[1.05fr_0.95fr]">
+      <style>{`
+        @keyframes pl-drift { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(26px,-30px,0) scale(1.08); } }
+        @keyframes pl-float { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-16px) rotate(5deg); } }
+        @keyframes pl-shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+        @keyframes pl-orbit { from { transform: rotate(0deg) translateX(20px) rotate(0deg); } to { transform: rotate(360deg) translateX(20px) rotate(-360deg); } }
+        .pl-orb { animation: pl-drift 9s ease-in-out infinite; }
+        .pl-orb-delay { animation: pl-drift 12s ease-in-out -4s infinite; }
+        .pl-float { animation: pl-float 5s ease-in-out infinite; }
+        .pl-float-delay { animation: pl-float 6s ease-in-out -2s infinite; }
+        .pl-shimmer { background-size: 200% 100%; animation: pl-shimmer 4s linear infinite; }
+        .pathashala-login button { -webkit-tap-highlight-color: transparent; }
+        @media (prefers-reduced-motion: reduce) { .pl-orb,.pl-orb-delay,.pl-float,.pl-float-delay,.pl-shimmer { animation: none !important; } }
+      `}</style>
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 top-12 -z-0 h-72 w-72 rounded-full bg-emerald-300/30 blur-3xl pl-orb" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 left-[38%] -z-0 h-80 w-80 rounded-full bg-teal-200/40 blur-3xl pl-orb-delay" />
+      <div aria-hidden="true" className="pointer-events-none fixed z-40 h-64 w-64 rounded-full opacity-55 blur-3xl transition-[left,top] duration-100" style={{ left: pointer.x, top: pointer.y, transform: 'translate(-50%, -50%)', background: role === 'teacher' ? '#F59E0B' : role === 'parent' ? '#60A5FA' : '#34D399' }} />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-0 opacity-[0.18]" style={{ backgroundImage: 'radial-gradient(#0B8457 0.8px, transparent 0.8px)', backgroundSize: '22px 22px' }} />
       <section style={{ transform: `perspective(1200px) rotateX(${heroTilt.x}deg) rotateY(${heroTilt.y}deg)` }} className="relative z-10 hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#003627] via-[#006A4E] to-[#0B8457] p-12 xl:p-16 text-white transition-transform duration-200 ease-out">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-30" style={{ background: `radial-gradient(circle at ${Math.max(0, Math.min(100, 50 + heroTilt.y * 5))}% ${Math.max(0, Math.min(100, 50 + heroTilt.x * -5))}%, rgba(255,255,255,0.45), transparent 35%)` }} />
-        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full border border-white/10" />
-        <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full border border-white/10" />
-        <div className="absolute -bottom-28 -left-20 h-96 w-96 rounded-full bg-white/5 blur-2xl" />
+        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full border border-white/15 pl-float" />
+        <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full border border-white/15 pl-float-delay" />
+        <div className="absolute -bottom-28 -left-20 h-96 w-96 rounded-full bg-emerald-300/10 blur-2xl pl-orb" />
+        <div aria-hidden="true" className="absolute right-[18%] top-[22%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_30px_8px_rgba(252,211,77,0.25)] pl-float" />
+        <div aria-hidden="true" className="absolute bottom-[28%] right-[10%] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_24px_6px_rgba(165,243,252,0.3)] pl-float-delay" />
         <div className="relative flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/20"><Sparkles className="h-6 w-6 text-amber-300" /></div>
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/25 shadow-lg shadow-black/10 transition duration-500 hover:rotate-12 hover:scale-110"><Sparkles className="h-6 w-6 text-amber-300" /></div>
           <div><p className="text-xl font-black tracking-tight">PATHASHALA AI</p><p className="text-xs text-emerald-100">One AI. Every Language. Every Learner.</p></div>
         </div>
         <div className="relative max-w-xl py-12">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-emerald-50"><Languages className="h-4 w-4" /> Learning without language barriers</div>
-          <h1 className="text-5xl font-black leading-[1.12] xl:text-6xl">Your learning journey starts <span className="text-amber-300">here.</span></h1>
+          <h1 className="text-5xl font-black leading-[1.12] xl:text-6xl">Your learning journey starts <span className="pl-shimmer inline-block bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-400 bg-clip-text text-transparent">here.</span></h1>
           <p className="mt-6 max-w-lg text-base leading-7 text-emerald-50/85">Personalised learning, an AI tutor, schoolwork, and progress insights — designed for every learner and every language.</p>
           <div className="mt-10 grid grid-cols-3 gap-3">
             {[{ icon: BookOpen, title: 'Learn', detail: 'Curriculum aligned' }, { icon: Sparkles, title: 'Ask AI', detail: 'Personalised help' }, { icon: ShieldCheck, title: 'Grow', detail: 'Track progress' }].map((item) => (
-              <div key={item.title} style={{ transform: `translateY(${Math.sin((pointer.x + item.title.length * 35) / 90) * 5}px)` }} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm transition-transform duration-300 hover:-translate-y-2 hover:bg-white/15"><item.icon className="mb-4 h-5 w-5 text-amber-300" /><p className="text-sm font-extrabold">{item.title}</p><p className="mt-1 text-[11px] text-emerald-100">{item.detail}</p></div>
+              <div key={item.title} style={{ transform: `translateY(${Math.sin((pointer.x + item.title.length * 35) / 90) * 5}px)` }} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] hover:border-white/30 hover:bg-white/20 hover:shadow-xl hover:shadow-black/10"><item.icon className="mb-4 h-5 w-5 text-amber-300" /><p className="text-sm font-extrabold">{item.title}</p><p className="mt-1 text-[11px] text-emerald-100">{item.detail}</p></div>
             ))}
           </div>
         </div>
@@ -90,7 +107,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       </section>
 
       <section className="relative z-10 flex items-center justify-center px-5 py-10 sm:px-8">
-        <div style={{ transform: `perspective(1000px) rotateX(${heroTilt.x * -0.25}deg) rotateY(${heroTilt.y * 0.25}deg)` }} className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-[0_25px_80px_-35px_rgba(0,75,56,0.28)] backdrop-blur-xl transition-transform duration-200 sm:p-7">
+        <div style={{ transform: `perspective(1000px) rotateX(${heroTilt.x * -0.25}deg) rotateY(${heroTilt.y * 0.25}deg)` }} className="w-full max-w-md rounded-[2rem] border border-white/80 bg-white/75 p-5 shadow-[0_30px_100px_-30px_rgba(0,75,56,0.35)] backdrop-blur-2xl transition-transform duration-200 sm:p-7">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#006A4E] text-white"><Sparkles className="h-6 w-6 text-amber-300" /></div>
             <div><p className="font-black">PATHASHALA AI</p><p className="text-xs text-[#64776B]">Every language. Every learner.</p></div>
@@ -103,7 +120,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           <div className="mb-6 grid grid-cols-3 gap-2 rounded-2xl border border-[#D5E9DC] bg-white p-1.5">
             {(['student', 'teacher', 'parent'] as UserRole[]).map((item) => (
-              <button key={item} type="button" onClick={() => { setRole(item); setError(''); }} className={`rounded-xl px-2 py-3 text-sm font-bold capitalize transition ${role === item ? 'bg-[#006A4E] text-white shadow-sm' : 'text-[#64776B] hover:bg-[#F4FBF6]'}`}>{item}</button>
+              <button key={item} type="button" onClick={() => { setRole(item); setError(''); }} className={`rounded-xl px-2 py-3 text-sm font-bold capitalize transition-all duration-300 hover:scale-[1.03] ${role === item ? 'bg-gradient-to-r from-[#006A4E] to-[#0B8457] text-white shadow-lg shadow-emerald-900/20 ring-1 ring-emerald-500/20' : 'text-[#64776B] hover:bg-[#F4FBF6]'}`}>{item}</button>
             ))}
           </div>
 
@@ -111,7 +128,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <label className="block"><span className="mb-2 block text-sm font-bold">Email or school ID</span><span className="flex items-center gap-3 rounded-xl border border-[#CFE2D6] bg-white px-4 focus-within:border-[#006A4E] focus-within:ring-4 focus-within:ring-[#006A4E]/10"><Mail className="h-5 w-5 shrink-0 text-[#0B8457]" /><input autoComplete="username" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="you@pathashala.edu" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#9AA9A0]" /></span></label>
             <label className="block"><span className="mb-2 block text-sm font-bold">Password</span><span className="flex items-center gap-3 rounded-xl border border-[#CFE2D6] bg-white px-4 focus-within:border-[#006A4E] focus-within:ring-4 focus-within:ring-[#006A4E]/10"><LockKeyhole className="h-5 w-5 shrink-0 text-[#0B8457]" /><input autoComplete="current-password" required type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#9AA9A0]" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="text-[#64776B]">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
             {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
-            <button disabled={loading} type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#006A4E] px-4 text-sm font-extrabold text-white shadow-lg shadow-[#006A4E]/20 transition hover:bg-[#004B38] disabled:cursor-not-allowed disabled:opacity-70">{loading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Signing in…</> : <>Sign in <ArrowRight className="h-4 w-4" /></>}</button>
+            <button disabled={loading} type="submit" className="pl-shimmer flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#006A4E] via-[#0B8457] to-[#006A4E] px-4 text-sm font-extrabold text-white shadow-lg shadow-[#006A4E]/25 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#006A4E]/30 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70">{loading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Signing in…</> : <>Sign in <ArrowRight className="h-4 w-4" /></>}</button>
           </form>
 
           <div className="mt-6 rounded-2xl border border-[#D5E9DC] bg-white p-4">
