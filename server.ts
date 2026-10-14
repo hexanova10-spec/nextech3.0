@@ -17,6 +17,57 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '15mb' }));
 app.disable('x-powered-by');
+
+// Authenticate API requests using the signed token issued by /api/auth/login.
+// Public routes are limited to login, registration, and health/readiness checks.
+app.use('/api', (req, res, next) => {
+  if (
+    req.path === '/auth/login' ||
+    req.path === '/auth/register' ||
+    req.path === '/health' ||
+    req.path === '/ai/status'
+  ) return next();
+
+  const authorization = req.headers.authorization || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  const parts = token.split('.');
+  if (parts.length !== 3 || !configuredAuthSecret) {
+    return res.status(401).json({ error: 'Sign in required. Please log in again.' });
+  }
+
+  try {
+    const unsigned = parts.slice(0, 2).join('.');
+    const expected = createHmac('sha256', AUTH_SECRET).update(unsigned).digest();
+    const actual = Buffer.from(parts[2], 'base64url');
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+      return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+    }
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (!payload.sub || !payload.role || !payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
+      return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+    }
+    const user = db.users.find((item) => item.id === payload.sub && item.role === payload.role);
+    if (!user) return res.status(401).json({ error: 'Account not found. Please sign in again.' });
+
+    (req as any).authUser = user;
+    const role = user.role as string;
+    const route = req.path;
+
+    // Role-specific endpoints cannot be accessed by changing frontend controls or URL.
+    if (
+      (route.startsWith('/teacher') && role !== 'teacher') ||
+      (route.startsWith('/parent') && role !== 'parent') ||
+      (route.startsWith('/student') && role !== 'student') ||
+      (route.startsWith('/camera-alerts') && role !== 'teacher') ||
+      (route.startsWith('/reports') && role === 'student')
+    ) {
+      return res.status(403).json({ error: 'Your account role is not allowed to access this resource.' });
+    }
+    return next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+  }
+});
 const STORE_FILE = path.resolve(__dirname, process.env.PATHASHALA_DATA_FILE || '.pathashala-data.json');
 const configuredAuthSecret = process.env.PATHASHALA_AUTH_SECRET || process.env.JWT_SECRET;
 const AUTH_SECRET = configuredAuthSecret || randomBytes(32).toString('hex');
