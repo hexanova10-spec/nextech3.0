@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UserRole,
   StudentProfile,
@@ -67,6 +67,52 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
   );
   const [gradeMarks, setGradeMarks] = useState(18);
   const [gradeFeedback, setGradeFeedback] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [recordingTitle, setRecordingTitle] = useState('');
+  const [recordingUrl, setRecordingUrl] = useState('');
+  const [recordingClass, setRecordingClass] = useState(10);
+  const [recordingSubject, setRecordingSubject] = useState('Physics');
+  const [recordingMessage, setRecordingMessage] = useState<string | null>(null);
+
+  // Teacher and student portals read the same backend source of truth.
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch('/api/homework');
+        if (!response.ok) throw new Error(`Homework API returned HTTP ${response.status}`);
+        const data = await response.json();
+        if (cancelled) return;
+        if (Array.isArray(data.homework)) setAssignments(data.homework);
+        if (Array.isArray(data.submissions)) setSubmissions(data.submissions);
+      } catch (error) {
+        console.warn('Could not refresh shared homework records:', error);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => { void refresh(); }, 8000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, []);
+
+  const handlePublishRecording = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionError(null);
+    setRecordingMessage(null);
+    try {
+      const response = await fetch('/api/recordings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: recordingTitle, videoUrl: recordingUrl, classNum: recordingClass, subject: recordingSubject, teacherName: profile.name })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Could not publish recording (HTTP ${response.status})`);
+      setRecordingTitle('');
+      setRecordingUrl('');
+      setRecordingMessage('Class recording published. Students will see it in Offline Lessons.');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not publish the class recording.');
+    }
+  };
 
   // Find submission for current student & assignment
   const getSubmissionFor = (assignmentId: string) => {
@@ -140,16 +186,24 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
       submittedCount: 0
     };
 
+    setActionError(null);
+    let savedHomework = newHw;
     try {
-      await fetch('/api/homework', {
+      const response = await fetch('/api/homework', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newHw)
       });
-    } catch (e) {}
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Could not assign homework (HTTP ${response.status})`);
+      savedHomework = data.homework || newHw;
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save the assignment. Check that the backend is running.');
+      return;
+    }
 
-    setAssignments([newHw, ...assignments]);
-    setSelectedAssignment(newHw);
+    setAssignments((prev) => [savedHomework, ...prev.filter((item) => item.id !== savedHomework.id)]);
+    setSelectedAssignment(savedHomework);
     setIsCreatingHomework(false);
     setNewTitle('');
     setNewInstructions('');
@@ -185,6 +239,20 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
 
   return (
     <div className="space-y-6">
+      {actionError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">{actionError}</div>}
+      {recordingMessage && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{recordingMessage}</div>}
+      {role === 'teacher' && (
+        <form onSubmit={handlePublishRecording} className="rounded-3xl border border-indigo-200 bg-indigo-50/70 p-5 space-y-3">
+          <div><h2 className="font-black text-slate-900">Publish a Class Recording</h2><p className="mt-1 text-xs text-slate-600">Use a direct MP4/WebM video URL that students can access. Students can cache supported videos for offline playback.</p></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input required value={recordingTitle} onChange={(e) => setRecordingTitle(e.target.value)} placeholder="Recording title" className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm" />
+            <input required type="url" value={recordingUrl} onChange={(e) => setRecordingUrl(e.target.value)} placeholder="https://.../lesson.mp4" className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm" />
+            <select value={recordingClass} onChange={(e) => setRecordingClass(Number(e.target.value))} className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm">{[1,2,3,4,5,6,7,8,9,10,11,12].map((c) => <option key={c} value={c}>Class {c}</option>)}</select>
+            <select value={recordingSubject} onChange={(e) => setRecordingSubject(e.target.value)} className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm">{['Physics','Mathematics','Chemistry','Biology','Science','English','Odia','Social Science'].map((subject) => <option key={subject} value={subject}>{subject}</option>)}</select>
+          </div>
+          <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700">Publish Recording to Students</button>
+        </form>
+      )}
       {/* Header Banner */}
       <div className="bg-white rounded-3xl p-6 border border-[#D5E9DC] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
