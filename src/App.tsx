@@ -114,6 +114,25 @@ export default function App() {
             if ('Notification' in window && Notification.permission === 'granted') {
               try { new Notification(notice.title, { body: notice.message, tag: notice.id }); } catch {}
             }
+            if (notice.category === 'alert') {
+              try {
+                const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                if (AudioContextClass) {
+                  const audio = new AudioContextClass();
+                  const oscillator = audio.createOscillator();
+                  const gain = audio.createGain();
+                  oscillator.frequency.value = 740;
+                  gain.gain.setValueAtTime(0.0001, audio.currentTime);
+                  gain.gain.exponentialRampToValueAtTime(0.12, audio.currentTime + 0.04);
+                  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.55);
+                  oscillator.connect(gain);
+                  gain.connect(audio.destination);
+                  oscillator.start();
+                  oscillator.stop(audio.currentTime + 0.6);
+                  oscillator.onended = () => { void audio.close(); };
+                }
+              } catch {}
+            }
           }
         }
       } catch (error) {
