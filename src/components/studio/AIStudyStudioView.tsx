@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StudentProfile } from '../../types';
 import { offlineStorage } from '../../services/offlineStorage';
 import {
@@ -13,7 +13,11 @@ import {
   Cpu,
   RotateCw,
   HelpCircle,
-  Copy
+  Copy,
+  Video,
+  Network,
+  PlayCircle,
+  ExternalLink
 } from 'lucide-react';
 
 interface AIStudyStudioViewProps {
@@ -26,10 +30,16 @@ type StudioContentType = 'short_notes' | 'summary' | 'flashcards' | 'formulas' |
 export const AIStudyStudioView: React.FC<AIStudyStudioViewProps> = ({ profile, activeSubject }) => {
   const [contentType, setContentType] = useState<StudioContentType>('short_notes');
   const [topic, setTopic] = useState('Electricity and Circuits');
+  const [mindMapEntries, setMindMapEntries] = useState('Main idea\nKey concepts\nExamples\nImportant formulas');
   const [targetLang, setTargetLang] = useState(profile.tutorLanguage || 'Odia');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [flashcardFlipped, setFlashcardFlipped] = useState<number | null>(null);
+
+  const mindMapBranches = useMemo(() => mindMapEntries.split(/[\n,;]+/).map((entry) => entry.trim()).filter(Boolean).slice(0, 12), [mindMapEntries]);
+  const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`Class ${profile.classNum} ${activeSubject} ${topic} lesson`)}`;
+  const conceptVideoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${activeSubject} ${topic} explanation for students`)}`;
+  const revisionVideoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`Class ${profile.classNum} ${activeSubject} ${topic} revision`)}`;
 
   const sampleFlashcards = [
     { q: "What is Ohm's Law formula?", a: "V = I × R (Voltage = Current × Resistance)" },
@@ -49,7 +59,7 @@ export const AIStudyStudioView: React.FC<AIStudyStudioViewProps> = ({ profile, a
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: contentType,
-          topic,
+          topic: contentType === 'mindmap' ? `${topic}. Build the mind map using these student-provided entries and connect them logically: ${mindMapEntries}` : topic,
           classNum: profile.classNum,
           subject: activeSubject,
           language: targetLang
@@ -137,6 +147,34 @@ export const AIStudyStudioView: React.FC<AIStudyStudioViewProps> = ({ profile, a
             })}
           </div>
         </div>
+
+        {contentType === 'mindmap' && (
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 sm:p-5 space-y-3">
+            <div className="flex items-center gap-2 text-violet-950">
+              <Network className="h-5 w-5" />
+              <div>
+                <h3 className="text-sm font-extrabold">Build your own mind map</h3>
+                <p className="text-xs text-violet-800/70">Enter one idea per line, or separate ideas with commas. The preview updates as you type.</p>
+              </div>
+            </div>
+            <textarea value={mindMapEntries} onChange={(e) => setMindMapEntries(e.target.value)} rows={4} placeholder="Main idea&#10;Definition&#10;Key points&#10;Examples&#10;Formulas" className="w-full resize-y rounded-xl border border-violet-200 bg-white p-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-violet-400/40" />
+            <div className="rounded-2xl border border-violet-100 bg-white p-4">
+              <div className="mx-auto mb-4 max-w-xs rounded-xl bg-violet-700 px-4 py-3 text-center text-sm font-bold text-white shadow-sm">{topic || 'Your main topic'}</div>
+              <div className="mx-auto mb-3 h-5 w-px bg-violet-300" />
+              {mindMapBranches.length ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {mindMapBranches.map((entry, index) => (
+                    <div key={entry + index} className="relative rounded-xl border border-violet-200 bg-violet-50 px-3 py-3 text-center text-xs font-semibold text-violet-950">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-violet-500">Branch {index + 1}</span>
+                      {entry}
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-center text-xs text-slate-500">Add some ideas above to build your mind map.</p>}
+            </div>
+            <p className="text-[11px] text-violet-800/75">Select “Generate Study Material” to ask AI to organize these entries into a detailed mind map for Class {profile.classNum}, {activeSubject}.</p>
+          </div>
+        )}
 
         {/* Topic & Language inputs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -236,6 +274,32 @@ export const AIStudyStudioView: React.FC<AIStudyStudioViewProps> = ({ profile, a
           </div>
         </div>
       )}
+
+      {/* Subject-specific learning videos */}
+      <section className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-100 text-sky-700"><Video className="h-5 w-5" /></div>
+          <div>
+            <h2 className="text-base font-extrabold text-slate-900">Learn with videos</h2>
+            <p className="mt-1 text-xs text-slate-500">Video lessons matched to Class {profile.classNum}, {activeSubject} and your topic: {topic}.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            { title: 'Topic explanation', description: 'Understand the concept step by step', url: videoSearchUrl },
+            { title: 'Visual learning', description: 'Watch animations and worked examples', url: conceptVideoUrl },
+            { title: 'Quick revision', description: 'Review key points before a test', url: revisionVideoUrl },
+          ].map((video) => (
+            <a key={video.title} href={video.url} target="_blank" rel="noreferrer" className="group rounded-2xl border border-sky-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md">
+              <div className="mb-3 flex h-24 items-center justify-center rounded-xl bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700"><PlayCircle className="h-10 w-10 transition group-hover:scale-110" /></div>
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">{video.title}<ExternalLink className="h-3.5 w-3.5 text-slate-400" /></h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{video.description}</p>
+              <span className="mt-3 inline-flex text-xs font-bold text-sky-700">Find videos on YouTube →</span>
+            </a>
+          ))}
+        </div>
+        <p className="text-[10px] text-slate-400">YouTube search results open in a new tab. Review video accuracy and suitability before using them for schoolwork.</p>
+      </section>
 
       {/* Generated Content Output Section */}
       {generatedContent && (
