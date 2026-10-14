@@ -30,7 +30,7 @@ if (apiKey) {
 }
 
 // ==========================================
-// IN-MEMORY BACKEND DATA STORE FOR PROTOTYPE
+// SEEDED BACKEND DATA STORE FOR PROTOTYPE (persisted to a local JSON file)
 // ==========================================
 
 const db: {
@@ -313,7 +313,7 @@ app.get('/api/health', (req, res) => {
     hasApiKey: !!apiKey,
     app: 'PATHASHALA AI',
     version: '2.0.0',
-    mode: apiKey ? 'Live AI (Gemini 3.8 Flash)' : 'Demo Agentic Engine',
+    mode: apiKey ? 'Live AI (Gemini 2.5 Flash)' : 'Demo Agentic Engine',
     database: 'File-backed JSON store (prototype; use a managed database for production)'
   });
 });
