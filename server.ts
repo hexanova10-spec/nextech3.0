@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 
@@ -16,6 +17,37 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: '15mb' }));
 app.disable('x-powered-by');
 const STORE_FILE = path.resolve(__dirname, process.env.PATHASHALA_DATA_FILE || '.pathashala-data.json');
+const configuredAuthSecret = process.env.PATHASHALA_AUTH_SECRET || process.env.JWT_SECRET;
+const AUTH_SECRET = configuredAuthSecret || randomBytes(32).toString('hex');
+if (!configuredAuthSecret) {
+  console.warn('PATHASHALA_AUTH_SECRET is not configured. Login tokens will be invalidated whenever this server restarts.');
+}
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString('hex');
+  const derived = scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${derived}`;
+}
+
+function verifyPassword(storedPassword: unknown, suppliedPassword: string): boolean {
+  if (typeof storedPassword !== 'string') return false;
+  if (!storedPassword.startsWith('scrypt$')) return storedPassword === suppliedPassword;
+  const [, salt, expectedHex] = storedPassword.split('$');
+  if (!salt || !expectedHex || !/^[a-f0-9]+$/i.test(expectedHex)) return false;
+  const actual = scryptSync(suppliedPassword, salt, 64);
+  const expected = Buffer.from(expectedHex, 'hex');
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function createAccessToken(user: { id: string; role: string }): string {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const header = encode({ alg: 'HS256', typ: 'JWT' });
+  const now = Math.floor(Date.now() / 1000);
+  const payload = encode({ sub: user.id, role: user.role, iat: now, exp: now + 8 * 60 * 60 });
+  const unsigned = `${header}.${payload}`;
+  const signature = createHmac('sha256', AUTH_SECRET).update(unsigned).digest('base64url');
+  return `${unsigned}.${signature}`;
+}
 
 // Initialize Google GenAI SDK if API key is present
 const apiKey = process.env.GEMINI_API_KEY;
@@ -333,13 +365,13 @@ app.post('/api/auth/login', (req, res) => {
       (!role || u.role === role)
   );
 
-  if (!user || user.password !== password) {
+  if (!user || !verifyPassword(user.password, password)) {
     return res.status(401).json({
       error: 'Invalid credentials. Use the password assigned to this account or a provided demo account.'
     });
   }
 
-  // Demo passwords are plain text only for this prototype; use password hashing before production.
+  // Password verification uses scrypt hashes; tokens are signed and expire after eight hours.
   return res.json({
     success: true,
     user: {
@@ -354,7 +386,7 @@ app.post('/api/auth/login', (req, res) => {
       linkedStudentIds: user.linkedStudentIds,
       preferredLanguage: user.preferredLanguage
     },
-    token: `token_${user.id}_${Date.now()}`
+    token: createAccessToken(user)
   });
 });
 
@@ -389,7 +421,7 @@ app.post('/api/auth/register', (req, res) => {
     identifier: identifier || `BSE-2026-${Math.floor(1000 + Math.random() * 9000)}`,
     school: school || 'Odisha Model School',
     role,
-    password,
+    password: hashPassword(password),
     assignedClasses: role === 'student' ? (assignedClasses.length > 0 ? assignedClasses.slice(0, 2) : [10]) : [],
     teachingClasses: role === 'teacher' ? [10] : undefined,
     linkedStudentIds: role === 'parent' ? [] : undefined,
@@ -1055,6 +1087,24 @@ async function startServer() {
   } catch (error: any) {
     if (error?.code !== 'ENOENT') console.error('Could not load persisted data; using seeded demo data:', error?.message || error);
   }
+  // Upgrade legacy seeded or saved demo passwords before serving any requests.
+  let migratedPasswords = false;
+  for (const user of db.users) {
+    if (typeof user.password === 'string' && !user.password.startsWith('scrypt$')) {
+      user.password = hashPassword(user.password);
+      migratedPasswords = true;
+    }
+  }
+  if (migratedPasswords || !fs.existsSync(STORE_FILE)) {
+    try {
+      fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
+      fs.writeFileSync(STORE_FILE, JSON.stringify(db, null, 2), { encoding: 'utf8', mode: 0o600 });
+      console.log('Saved hashed demo credentials to the local data store.');
+    } catch (error: any) {
+      console.error('Could not save migrated credentials:', error?.message || error);
+    }
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({

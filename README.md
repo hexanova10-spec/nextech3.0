@@ -30,9 +30,9 @@ Choose the appropriate portal on the login screen. These seeded prototype accoun
 
 The backend saves successful API mutations to `.pathashala-data.json` and reloads them at startup, so local demo records survive a server restart. This is a lightweight prototype store, **not a replacement for PostgreSQL or another managed database**. On cloud hosts with ephemeral filesystems, data can still be lost on redeploy/restart unless a persistent disk is configured. Set `PATHASHALA_DATA_FILE` to choose a different file path.
 
-The API now checks demo/account passwords, validates registration roles and class numbers, rejects duplicate email addresses, and persists homework, alerts, reports, activities, and notifications. Registration requires a password of at least 8 characters.
+The API validates login credentials, registration roles and class numbers, rejects duplicate email addresses, and persists homework, alerts, reports, activities, and notifications. Registration requires a password of at least 8 characters. Passwords are stored with Node.js scrypt hashing, including an automatic migration of existing plain-text demo passwords when the server starts. Login returns an HMAC-SHA256 signed token with an eight-hour expiry. Configure `PATHASHALA_AUTH_SECRET` to a strong random secret in deployment settings; if omitted, a temporary secret is generated at startup and tokens will stop working after a restart.
 
-**Production warning:** this project is still a prototype. Demo passwords are stored as plain text in the local data store, returned login tokens are not signed sessions, and most API routes do not yet enforce authenticated role-based access. Do not put real student data on a public deployment until password hashing, signed sessions, authorization checks, and a managed database are implemented.
+**Production warning:** this project remains a prototype. Signed tokens are issued but the current API routes do not yet consistently verify them or enforce role-based authorization. The JSON file store is not a managed database. Do not use real student records until token verification, endpoint authorization, secure session handling, and a managed database are implemented.
 
 ## Optional: run Vite separately
 
