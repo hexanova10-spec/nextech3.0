@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { Pool, type PoolClient } from 'pg';
@@ -631,30 +631,89 @@ app.post('/api/student/classes', (req, res) => {
 });
 
 // ==========================================
-// CLASS RECORDINGS (metadata is shared; video files must be hosted at a reachable URL)
+// CLASS RECORDINGS (Cloudinary-hosted video files)
 // ==========================================
 
+function getAuthenticatedUser(req: any) {
+  const header = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const parts = match[1].split('.');
+  if (parts.length !== 3) return null;
+  const expected = createHmac('sha256', AUTH_SECRET).update(parts[0] + '.' + parts[1]).digest();
+  let supplied: Buffer;
+  try { supplied = Buffer.from(parts[2], 'base64url'); } catch { return null; }
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (!payload.sub || !payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    return db.users.find((user) => user.id === payload.sub && user.role === payload.role) || null;
+  } catch { return null; }
+}
+
+function requireTeacher(req: any, res: any) {
+  const user = getAuthenticatedUser(req);
+  if (!user) { res.status(401).json({ error: 'Please sign in again to continue.' }); return null; }
+  if (user.role !== 'teacher') { res.status(403).json({ error: 'Only teacher accounts can publish class recordings.' }); return null; }
+  req.authUser = user;
+  return user;
+}
+
 app.get('/api/recordings', (req, res) => {
-  const classNum = req.query.classNum ? Number(req.query.classNum) : undefined;
-  const recordings = classNum ? db.recordings.filter((item) => item.classNum === classNum) : db.recordings;
-  return res.json({ recordings });
+  const user = getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Sign in to view class recordings.' });
+  const requestedClass = req.query.classNum ? Number(req.query.classNum) : undefined;
+  let visible = db.recordings;
+  if (user.role === 'student') {
+    const classes = Array.isArray(user.assignedClasses) ? user.assignedClasses.map(Number) : [];
+    visible = visible.filter((item) => classes.includes(Number(item.classNum)));
+  } else if (user.role === 'teacher') {
+    const classes = Array.isArray(user.teachingClasses) ? user.teachingClasses.map(Number) : [];
+    visible = visible.filter((item) => !item.teacherId || item.teacherId === user.id || classes.includes(Number(item.classNum)));
+  } else {
+    return res.status(403).json({ error: 'This account cannot view class recordings.' });
+  }
+  if (requestedClass) visible = visible.filter((item) => Number(item.classNum) === requestedClass);
+  return res.json({ recordings: visible });
+});
+
+app.post('/api/recordings/cloudinary-signature', (req, res) => {
+  const teacher = requireTeacher(req, res);
+  if (!teacher) return;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+  const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+  const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+  if (!cloudName || !apiKey || !apiSecret) {
+    return res.status(503).json({ error: 'Cloud video storage is not configured yet. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to the backend environment.' });
+  }
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = 'pathashala/class-recordings';
+  const signature = createHash('sha1').update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`).digest('hex');
+  return res.json({ cloudName, apiKey, timestamp, folder, signature });
 });
 
 app.post('/api/recordings', (req, res) => {
-  const { title, classNum, subject, videoUrl, teacherName } = req.body || {};
-  if (typeof title !== 'string' || !title.trim() || !Number.isInteger(Number(classNum)) || Number(classNum) < 1 || Number(classNum) > 12 || typeof subject !== 'string' || !subject.trim() || typeof videoUrl !== 'string') {
-    return res.status(400).json({ error: 'Title, class (1–12), subject, and a direct video URL are required.' });
+  const teacher = requireTeacher(req, res);
+  if (!teacher) return;
+  const { title, classNum, subject, videoUrl, publicId, durationSeconds } = req.body || {};
+  if (typeof title !== 'string' || !title.trim() || !Number.isInteger(Number(classNum)) || Number(classNum) < 1 || Number(classNum) > 12 || typeof subject !== 'string' || !subject.trim() || typeof videoUrl !== 'string' || typeof publicId !== 'string') {
+    return res.status(400).json({ error: 'Title, class, subject, and a Cloudinary video upload are required.' });
   }
+  const classes = Array.isArray(teacher.teachingClasses) ? teacher.teachingClasses.map(Number) : [];
+  if (!classes.includes(Number(classNum))) return res.status(403).json({ error: 'You can publish recordings only to your assigned teaching classes.' });
   let parsedUrl: URL;
-  try { parsedUrl = new URL(videoUrl); } catch { return res.status(400).json({ error: 'Enter a valid direct MP4/WebM video URL.' }); }
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) return res.status(400).json({ error: 'Video URL must use HTTP or HTTPS.' });
+  try { parsedUrl = new URL(videoUrl); } catch { return res.status(400).json({ error: 'Cloudinary did not return a valid video URL.' }); }
+  if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname.endsWith('cloudinary.com')) return res.status(400).json({ error: 'Recording must be stored in Cloudinary over HTTPS.' });
   const recording = {
     id: `REC-${Date.now()}-${randomBytes(3).toString('hex')}`,
     title: title.trim().slice(0, 160),
     classNum: Number(classNum),
     subject: subject.trim().slice(0, 80),
     videoUrl: parsedUrl.toString(),
-    teacherName: typeof teacherName === 'string' && teacherName.trim() ? teacherName.trim().slice(0, 100) : 'Teacher',
+    publicId: publicId.slice(0, 300),
+    durationSeconds: Number.isFinite(Number(durationSeconds)) ? Math.max(0, Math.min(86400, Number(durationSeconds))) : undefined,
+    teacherId: teacher.id,
+    teacherName: teacher.name || 'Teacher',
     createdAt: new Date().toISOString()
   };
   db.recordings.unshift(recording);
