@@ -371,7 +371,7 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
 
-  // Demo passwords are plain text only for this prototype; use password hashing before production.
+  // Password verification uses scrypt hashes; tokens are signed and expire after eight hours.
   return res.json({
     success: true,
     user: {
