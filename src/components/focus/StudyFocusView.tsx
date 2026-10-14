@@ -183,7 +183,8 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
         if (awayStartRef.current) {
           const duration = Math.round((Date.now() - awayStartRef.current) / 1000);
           awayStartRef.current = null;
-          processAwayDuration(duration);\n        if (duration >= 3) {
+          processAwayDuration(duration);
+          if (duration >= 3) {
             const newInterruption: FocusInterruption = {
               id: `INT-${Date.now()}`,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
