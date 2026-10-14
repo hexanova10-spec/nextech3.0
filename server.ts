@@ -1293,9 +1293,13 @@ async function startServer() {
   if (pgPool) {
     try {
       await initializePostgresStore();
-      // Write the loaded relational records into the local snapshot only as a convenience.
-      fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
-      fs.writeFileSync(STORE_FILE, JSON.stringify(db, null, 2), { encoding: 'utf8', mode: 0o600 });
+      // A local snapshot is optional when PostgreSQL is authoritative (some hosts use read-only filesystems).
+      try {
+        fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
+        fs.writeFileSync(STORE_FILE, JSON.stringify(db, null, 2), { encoding: 'utf8', mode: 0o600 });
+      } catch (snapshotError: any) {
+        console.warn('PostgreSQL is ready; local JSON snapshot was skipped:', snapshotError?.message || snapshotError);
+      }
     } catch (error: any) {
       console.error('Could not initialize PostgreSQL. Refusing to start with a broken configured database:', error?.message || error);
       await pgPool.end();
