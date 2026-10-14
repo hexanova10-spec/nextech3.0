@@ -197,8 +197,7 @@ const db: {
     {
       id: 'REP-10-OCT26',
       studentId: 'STU-2026-1082',
-      studentName: 'Subhashree Nayak',
-      classNum: 10,
+      studentName: 'Subhashree Nayak',      classNum: 10,
       assignedClasses: [10, 9],
       subject: 'All Subjects (BSE Matriculation Stream)',
       reportingPeriod: 'October 1 – October 14, 2026',
@@ -398,7 +397,6 @@ async function initializePostgresStore() {
   const migrationSql = fs.readFileSync(migrationPath, 'utf8');
   await pgPool.query(migrationSql);
   await pgPool.query("INSERT INTO schema_migrations (version) VALUES ('001_initial') ON CONFLICT (version) DO NOTHING");
-
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
@@ -597,8 +595,7 @@ app.post('/api/auth/register', (req, res) => {
   db.users.push(newUser);
 
   const { password: _password, ...publicUser } = newUser;
-  return res.status(201).json({
-    success: true,
+  return res.status(201).json({    success: true,
     user: publicUser,
     message: 'Account created successfully.'
   });
@@ -797,8 +794,7 @@ app.post('/api/focus-events', (req, res) => {
     id: `FOCUS-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     studentId: student.id,
     studentName: studentName || student.name,
-    sessionId: sessionId || 'FOCUS-SESSION',
-    level,
+    sessionId: sessionId || 'FOCUS-SESSION',    level,
     awaySeconds: seconds,
     reason: typeof reason === 'string' ? reason.slice(0, 80) : 'window_not_focused',
     createdAt: now
@@ -997,8 +993,7 @@ function buildSystemInstruction(
   } else if (action === 'worksheet') {
     actionGuidance =
       'SPECIFIC ACTION: Produce a printable worksheet with clear instructions, varied age-appropriate questions, marks per question, a total marks line, and a separate answer key at the end.';
-  } else if (action === 'multilingual') {
-    actionGuidance =
+  } else if (action === 'multilingual') {    actionGuidance =
       'SPECIFIC ACTION: Teach in the requested target language using authentic script, retain important English technical terms in parentheses, and finish with a short bilingual glossary and recap.';
   } else if (action === 'grade_homework') {
     actionGuidance =
@@ -1022,6 +1017,26 @@ Pedagogical Rules:
 1. Always adapt vocabulary strictly to Class ${classNum}.
 2. Ensure mathematical calculations display step-by-step with units.
 3. Keep tone respectful, encouraging, and academically accurate.`;
+}
+
+// Retry temporary Gemini capacity and rate-limit failures with bounded exponential backoff.
+async function withGeminiRetry<T>(operation: () => Promise<T>): Promise<T> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const status = Number(error?.status || error?.code || error?.error?.code);
+      const message = String(error?.message || error?.error?.message || '');
+      const transient = [429, 500, 502, 503, 504].includes(status) ||
+        /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|temporarily unavailable|rate.?limit/i.test(message);
+      if (!transient || attempt === maxAttempts) throw error;
+      const delayMs = 700 * (2 ** (attempt - 1));
+      console.warn(`Gemini temporary failure (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms.`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error('Gemini request failed after retries.');
 }
 
 // AI Tutor chat endpoint
@@ -1084,11 +1099,11 @@ app.post('/api/gemini/tutor', async (req, res) => {
         });
       }
 
-      const response = await aiClient.models.generateContent({
+      const response = await withGeminiRetry(() => aiClient.models.generateContent({
         model: 'gemini-3.8-flash',
         contents: parts,
         config: { temperature: 0.35, maxOutputTokens: 4096 }
-      });
+      }));
 
       const responseText = response.text;
       if (responseText) {
@@ -1138,7 +1153,7 @@ app.post('/api/gemini/vision', async (req, res) => {
       const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
       const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
-      const response = await aiClient.models.generateContent({
+      const response = await withGeminiRetry(() => aiClient.models.generateContent({
         model: 'gemini-3.8-flash',
         contents: [
           {
@@ -1158,7 +1173,7 @@ Additional Student Request: ${prompt || 'Solve step by step'}`
             }
           }
         ]
-      });
+      }));
 
       if (response.text) {
         return res.json({
@@ -1197,8 +1212,7 @@ function generateAgenticFallback(
         answer: `### 📝 ଦ୍ରୁତ ପରୀକ୍ଷା (Quick Quiz) • ଶ୍ରେଣୀ ${classNum} ${subject}
 
 **ପ୍ରଶ୍ନ ୧:** ବିଦ୍ୟୁତ ପ୍ରବାହ (Electric Current) ର SI ଏକକ କ’ଣ?
-- A) ଭୋଲ୍ଟ (Volt)
-- B) ଆମ୍ପିୟର (Ampere)
+- A) ଭୋଲ୍ଟ (Volt)- B) ଆମ୍ପିୟର (Ampere)
 - C) ଓମ୍ (Ohm)
 - D) ଜୁଲ୍ (Joule)
 *(ସଠିକ୍ ଉତ୍ତର: B - ଆମ୍ପିୟର)*
