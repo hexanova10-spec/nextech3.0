@@ -74,7 +74,13 @@ export const OfflineCentreView: React.FC<OfflineCentreViewProps> = ({
         const serverRecords: ClassRecording[] = Array.isArray(data.recordings) ? data.recordings : [];
         const merged = [...serverRecords, ...localRecords.filter((local) => !serverRecords.some((server) => server.id === local.id))];
         localStorage.setItem(RECORDINGS_KEY, JSON.stringify(merged));
-        if (!cancelled) setRecordings(merged);
+        if (!cancelled) {
+          setRecordings(merged);
+          const cache = await caches.open(RECORDING_CACHE);
+          const cachedIds: string[] = [];
+          for (const item of merged) if (await cache.match(item.videoUrl)) cachedIds.push(item.id);
+          setCachedRecordingIds(cachedIds);
+        }
       } catch (error) {
         console.warn('Class recordings are using locally saved metadata:', error);
       }
@@ -252,7 +258,7 @@ export const OfflineCentreView: React.FC<OfflineCentreViewProps> = ({
         <div className="flex items-center gap-2"><Video className="w-5 h-5 text-indigo-600" /><div><h3 className="font-bold text-slate-900 text-sm">Class Recording Videos</h3><p className="text-xs text-slate-500">Recordings published by your teacher. Save a video while online to watch it without internet on this device.</p></div></div>
         {recordingStatus && <p role="status" className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-xs text-indigo-800">{recordingStatus}</p>}
         {recordings.filter((recording) => profile.assignedClasses.includes(recording.classNum)).length === 0 ? <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No recordings published for your assigned classes yet.</p> : <div className="space-y-3">{recordings.filter((recording) => profile.assignedClasses.includes(recording.classNum)).map((recording) => <div key={recording.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4"><div><p className="font-bold text-sm text-slate-900">{recording.title}</p><p className="mt-1 text-xs text-slate-500">Class {recording.classNum} • {recording.subject}{recording.teacherName ? ` • ${recording.teacherName}` : ''}</p><p className="mt-1 text-[11px] text-emerald-700">{cachedRecordingIds.includes(recording.id) ? 'Saved for offline playback' : 'Not saved offline yet'}</p></div><div className="flex gap-2"><button type="button" onClick={() => void handlePlayRecording(recording)} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white flex items-center gap-1"><PlayCircle className="w-4 h-4" /> Play</button><button type="button" disabled={recordingBusyId === recording.id || cachedRecordingIds.includes(recording.id)} onClick={() => void handleCacheRecording(recording)} className="rounded-xl border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 disabled:opacity-50 flex items-center gap-1"><Download className="w-4 h-4" />{recordingBusyId === recording.id ? 'Saving…' : cachedRecordingIds.includes(recording.id) ? 'Saved' : 'Save offline'}</button></div></div>)}</div>}
-        {activeRecording && <div className="rounded-2xl border border-indigo-200 bg-slate-950 p-3 space-y-2"><div className="flex justify-between items-center text-white text-xs"><span className="font-bold">{activeRecording.title}</span><button type="button" onClick={() => { URL.revokeObjectURL(activeRecording.src.startsWith('blob:') ? activeRecording.src : ''); setActiveRecording(null); }} className="rounded-lg bg-white/15 px-2 py-1">Close video</button></div><video key={activeRecording.src} controls playsInline preload="metadata" className="w-full max-h-[420px] rounded-xl" src={activeRecording.src}>Your browser cannot play this video format.</video></div>}
+        {activeRecording && <div className="rounded-2xl border border-indigo-200 bg-slate-950 p-3 space-y-2"><div className="flex justify-between items-center text-white text-xs"><span className="font-bold">{activeRecording.title}</span><button type="button" onClick={() => { if (activeRecording.src.startsWith('blob:')) URL.revokeObjectURL(activeRecording.src); setActiveRecording(null); }} className="rounded-lg bg-white/15 px-2 py-1">Close video</button></div><video key={activeRecording.src} controls playsInline preload="metadata" className="w-full max-h-[420px] rounded-xl" src={activeRecording.src}>Your browser cannot play this video format.</video></div>}
       </div>
 
       {/* Cached Lessons List */}
