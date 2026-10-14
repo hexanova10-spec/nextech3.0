@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
@@ -13,6 +14,8 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '15mb' }));
+app.disable('x-powered-by');
+const STORE_FILE = path.resolve(__dirname, process.env.PATHASHALA_DATA_FILE || '.pathashala-data.json');
 
 // Initialize Google GenAI SDK if API key is present
 const apiKey = process.env.GEMINI_API_KEY;
@@ -27,7 +30,7 @@ if (apiKey) {
 }
 
 // ==========================================
-// IN-MEMORY BACKEND DATA STORE FOR PROTOTYPE
+// SEEDED BACKEND DATA STORE FOR PROTOTYPE (persisted to a local JSON file)
 // ==========================================
 
 const db: {
@@ -281,6 +284,24 @@ const db: {
   ]
 };
 
+// Persist successful mutations before sending responses; load saved records at startup.
+app.use((req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const sendJson = res.json.bind(res);
+  res.json = ((body: any) => {
+    if (res.statusCode >= 400) return sendJson(body);
+    try {
+      fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
+      fs.writeFileSync(STORE_FILE, JSON.stringify(db, null, 2), { encoding: 'utf8', mode: 0o600 });
+    } catch (error: any) {
+      console.error('Failed to persist Pathashala data:', error?.message || error);
+      if (!res.headersSent) return sendJson({ error: 'The change could not be saved. Please retry.' });
+    }
+    return sendJson(body);
+  }) as typeof res.json;
+  next();
+});
+
 // ==========================================
 // REST APIS: HEALTH & AUTHENTICATION
 // ==========================================
@@ -292,16 +313,16 @@ app.get('/api/health', (req, res) => {
     hasApiKey: !!apiKey,
     app: 'PATHASHALA AI',
     version: '2.0.0',
-    mode: apiKey ? 'Live AI (Gemini 3.8 Flash)' : 'Demo Agentic Engine',
-    database: 'In-Memory Prototype with IndexedDB Offline Sync'
+    mode: apiKey ? 'Live AI (Gemini 2.5 Flash)' : 'Demo Agentic Engine',
+    database: 'File-backed JSON store (prototype; use a managed database for production)'
   });
 });
 
 // Auth Login
 app.post('/api/auth/login', (req, res) => {
-  const { identifier, password, role } = req.body;
-  if (!identifier) {
-    return res.status(400).json({ error: 'Student ID or email is required' });
+  const { identifier, password, role } = req.body || {};
+  if (typeof identifier !== 'string' || !identifier.trim() || typeof password !== 'string' || !password) {
+    return res.status(400).json({ error: 'Student ID/email and password are required' });
   }
 
   const user = db.users.find(
@@ -312,13 +333,13 @@ app.post('/api/auth/login', (req, res) => {
       (!role || u.role === role)
   );
 
-  if (!user) {
+  if (!user || user.password !== password) {
     return res.status(401).json({
-      error: 'Invalid credentials. You may use the provided Quick-Fill demo accounts.'
+      error: 'Invalid credentials. Use the password assigned to this account or a provided demo account.'
     });
   }
 
-  // In production, compare hashed passwords. For prototype/demo, allow password123 or any test string.
+  // Demo passwords are plain text only for this prototype; use password hashing before production.
   return res.json({
     success: true,
     user: {
@@ -339,11 +360,16 @@ app.post('/api/auth/login', (req, res) => {
 
 // Auth Register (STRICT TWO-CLASS LIMIT ENFORCED)
 app.post('/api/auth/register', (req, res) => {
-  const { name, email, identifier, school, assignedClasses = [], preferredLanguage, role = 'student' } = req.body;
+  const { name, email, identifier, school, assignedClasses = [], preferredLanguage, role = 'student', password } = req.body || {};
 
-  if (!name) {
-    return res.status(400).json({ error: 'Name is required' });
+  if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!['student', 'teacher', 'parent'].includes(role)) return res.status(400).json({ error: 'Role must be student, teacher, or parent.' });
+  if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'A password of at least 8 characters is required.' });
+  if (!Array.isArray(assignedClasses) || assignedClasses.some((value: unknown) => !Number.isInteger(Number(value)) || Number(value) < 1 || Number(value) > 12)) {
+    return res.status(400).json({ error: 'assignedClasses must contain class numbers from 1 to 12.' });
   }
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  if (normalizedEmail && db.users.some((u) => u.email?.toLowerCase() === normalizedEmail)) return res.status(409).json({ error: 'An account with this email already exists.' });
 
   if (role === 'student') {
     if (assignedClasses.length > 2) {
@@ -354,24 +380,29 @@ app.post('/api/auth/register', (req, res) => {
     }
   }
 
-  const newId = `STU-${Date.now().toString().slice(-4)}`;
+  const prefix = role === 'teacher' ? 'TCH' : role === 'parent' ? 'PAR' : 'STU';
+  const newId = `${prefix}-${Date.now().toString().slice(-8)}`;
   const newUser = {
     id: newId,
     name,
-    email: email || `${name.toLowerCase().replace(/\s+/g, '')}@pathashala.edu`,
+    email: normalizedEmail || `${name.toLowerCase().replace(/\s+/g, '')}@pathashala.edu`,
     identifier: identifier || `BSE-2026-${Math.floor(1000 + Math.random() * 9000)}`,
     school: school || 'Odisha Model School',
     role,
-    assignedClasses: assignedClasses.length > 0 ? assignedClasses.slice(0, 2) : [10],
+    password,
+    assignedClasses: role === 'student' ? (assignedClasses.length > 0 ? assignedClasses.slice(0, 2) : [10]) : [],
+    teachingClasses: role === 'teacher' ? [10] : undefined,
+    linkedStudentIds: role === 'parent' ? [] : undefined,
     preferredLanguage: preferredLanguage || 'Odia'
   };
 
   db.users.push(newUser);
 
-  return res.json({
+  const { password: _password, ...publicUser } = newUser;
+  return res.status(201).json({
     success: true,
-    user: newUser,
-    message: 'Student account registered successfully.'
+    user: publicUser,
+    message: 'Account created successfully.'
   });
 });
 
@@ -389,10 +420,9 @@ app.post('/api/student/classes', (req, res) => {
     });
   }
 
-  const user = db.users.find((u) => u.id === studentId);
-  if (user) {
-    user.assignedClasses = assignedClasses.slice(0, 2);
-  }
+  const user = db.users.find((u) => u.id === studentId && u.role === 'student');
+  if (!user) return res.status(404).json({ error: 'Student account not found.' });
+  user.assignedClasses = assignedClasses.slice(0, 2);
 
   return res.json({
     success: true,
@@ -465,10 +495,10 @@ app.post('/api/homework/:id/submit', (req, res) => {
     db.submissions.push(newSubmission);
   }
 
-  // Update homework submitted count
+  // Count unique submissions; resubmitting must not inflate the total.
   const hw = db.homework.find((h) => h.id === id);
-  if (hw) {
-    hw.submittedCount += 1;
+  if (hw && existingSubIdx < 0) {
+    hw.submittedCount = db.submissions.filter((submission) => submission.assignmentId === id).length;
   }
 
   return res.json({ success: true, submission: newSubmission });
@@ -577,13 +607,11 @@ app.post('/api/focus-events', (req, res) => {
 });
 
 app.get('/api/notifications', (req, res) => {
-  const { recipientRole, recipientId } = req.query;
-  if (!recipientRole || !recipientId) {
-    return res.status(400).json({ error: 'recipientRole and recipientId are required.' });
-  }
-  const notifications = db.notifications.filter((n) =>
-    n.recipientRole === String(recipientRole) && n.recipientId === String(recipientId)
-  );
+  const { recipientRole, recipientId, role } = req.query;
+  let notifications = db.notifications;
+  const selectedRole = recipientRole || role;
+  if (selectedRole) notifications = notifications.filter((item) => item.recipientRole === String(selectedRole));
+  if (recipientId) notifications = notifications.filter((item) => item.recipientId === String(recipientId));
   return res.json({ notifications });
 });
 
@@ -682,14 +710,7 @@ app.post('/api/activity', (req, res) => {
   return res.json({ success: true, event: newEvent });
 });
 
-app.get('/api/notifications', (req, res) => {
-  const { role } = req.query;
-  let notifs = db.notifications;
-  if (role) {
-    notifs = notifs.filter((n) => n.recipientRole === role);
-  }
-  return res.json({ notifications: notifs });
-});
+
 
 // ==========================================
 // GEMINI AI INTEGRATION ROUTES
@@ -1027,6 +1048,13 @@ Practice one of the quick options below: **Show Steps** or **Generate Quiz** to 
 
 // Start Server
 async function startServer() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8'));
+    for (const key of Object.keys(db)) if (Array.isArray(saved[key])) (db as any)[key] = saved[key];
+    console.log('Loaded Pathashala records from persistent store.');
+  } catch (error: any) {
+    if (error?.code !== 'ENOENT') console.error('Could not load persisted data; using seeded demo data:', error?.message || error);
+  }
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({

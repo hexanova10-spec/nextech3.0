@@ -86,33 +86,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           onClose();
         }, 600);
       } else {
-        // Fallback to local demo users
-        const localMatch = DEMO_USERS.find(
-          (u) =>
-            u.role === selectedRole &&
-            (u.email.toLowerCase() === identifier.toLowerCase() ||
-              u.id.toLowerCase() === identifier.toLowerCase() ||
-              u.name.toLowerCase() === identifier.toLowerCase())
-        );
-        if (localMatch) {
-          setSuccessMessage(`Signed in as ${localMatch.name}`);
-          setTimeout(() => {
-            onSuccess(localMatch, localMatch.role);
-            onClose();
-          }, 600);
-        } else {
-          setErrorMessage(data.error || 'Invalid credentials. You may use the Quick-Fill Demo accounts.');
-        }
+        setErrorMessage(data.error || 'Invalid credentials. Check the identifier, password, and selected role.');
       }
     } catch (err) {
-      // Offline fallback
-      const localMatch = DEMO_USERS.find((u) => u.role === selectedRole);
-      if (localMatch) {
-        onSuccess(localMatch, localMatch.role);
-        onClose();
-      } else {
-        setErrorMessage('Authentication service temporarily offline. Please use a demo account.');
-      }
+      setErrorMessage('Authentication service is unavailable. Check the backend connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -121,6 +98,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    if (regPassword.length < 8) {
+      setErrorMessage('Create a password with at least 8 characters.');
+      return;
+    }
 
     if (selectedRole === 'student') {
       if (regClasses.length === 0) {
@@ -151,7 +132,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           school: regSchool,
           assignedClasses: regClasses,
           preferredLanguage: preferredLang,
-          role: selectedRole
+          role: selectedRole,
+          password: regPassword
         })
       });
       const data = await res.json();
@@ -165,18 +147,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setErrorMessage(data.error || 'Failed to register account.');
       }
     } catch (err) {
-      // Local registration fallback
-      const newUser: User = {
-        id: `STU-${Date.now().toString().slice(-4)}`,
-        name: regName || 'Registered Student',
-        email: regEmail || 'student@pathashala.edu',
-        role: selectedRole,
-        assignedClasses: regClasses.slice(0, 2),
-        school: regSchool,
-        preferredLanguage: preferredLang
-      };
-      onSuccess(newUser, selectedRole);
-      onClose();
+      setErrorMessage('Registration service is unavailable. Check the backend connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -432,6 +403,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="w-full px-3 py-2 rounded-xl border border-[#D5E9DC] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#006A4E]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#18352A] mb-1">Create Password</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={regPassword}
+                  onChange={(e) => setRegPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="w-full px-3 py-2 rounded-xl border border-[#D5E9DC] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#006A4E]"
+                />
               </div>
 
               <div>
