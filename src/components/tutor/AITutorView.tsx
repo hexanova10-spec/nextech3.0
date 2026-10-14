@@ -708,6 +708,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
                 )}
 
                 <div className="whitespace-pre-wrap font-sans space-y-2">{msg.text}</div>
+                {msg.isDemo && msg.demoNotice && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-900">{msg.demoNotice}</div>}
 
                 <div
                   className={`text-[10px] mt-2 pt-1 ${
