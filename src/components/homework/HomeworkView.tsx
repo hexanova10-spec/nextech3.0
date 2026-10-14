@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   UserRole,
   StudentProfile,
@@ -72,7 +72,13 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
   const [aiGradeSuggestion, setAiGradeSuggestion] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [recordingTitle, setRecordingTitle] = useState('');
-  const [recordingUrl, setRecordingUrl] = useState('');
+  const [recordingFile, setRecordingFile] = useState<File | null>(null);
+  const [cameraRecording, setCameraRecording] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<BlobPart[]>([]);
   const [recordingClass, setRecordingClass] = useState(10);
   const [recordingSubject, setRecordingSubject] = useState('Physics');
   const [recordingMessage, setRecordingMessage] = useState<string | null>(null);
@@ -97,21 +103,71 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
+  const stopCameraRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    setCameraRecording(false);
+  };
+
+  const startCameraRecording = async () => {
+    setCameraError(null);
+    setRecordingFile(null);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') throw new Error('Camera recording is not supported by this browser. Upload an MP4/WebM file instead.');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      cameraStreamRef.current = stream;
+      recordingChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) recordingChunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'video/webm' });
+        setRecordingFile(new File([blob], `lesson-recording-${Date.now()}.webm`, { type: blob.type }));
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start(1000);
+      setCameraRecording(true);
+    } catch (error) {
+      setCameraError(error instanceof Error ? error.message : 'Could not start camera recording. Check browser camera/microphone permission.');
+    }
+  };
+
   const handlePublishRecording = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
     setRecordingMessage(null);
+    const token = localStorage.getItem('pathashala_token');
+    if (!token) { setActionError('Please sign in again as a teacher before publishing.'); return; }
     try {
+      if (!recordingFile) throw new Error('Choose a video file or record a lesson with the camera before publishing.');
+      const signatureResponse = await fetch('/api/recordings/cloudinary-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const signed = await signatureResponse.json();
+      if (!signatureResponse.ok) throw new Error(signed.error || 'Could not prepare secure video upload.');
+      const upload = new FormData();
+      upload.append('file', recordingFile);
+      upload.append('api_key', signed.apiKey);
+      upload.append('timestamp', String(signed.timestamp));
+      upload.append('folder', signed.folder);
+      upload.append('signature', signed.signature);
+      const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${signed.cloudName}/video/upload`, { method: 'POST', body: upload });
+      const uploaded = await uploadResponse.json();
+      if (!uploadResponse.ok || !uploaded.secure_url || !uploaded.public_id) throw new Error(uploaded.error?.message || 'Cloudinary upload failed. Check your Cloudinary settings and upload limits.');
       const response = await fetch('/api/recordings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: recordingTitle, videoUrl: recordingUrl, classNum: recordingClass, subject: recordingSubject, teacherName: profile.name })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: recordingTitle, videoUrl: uploaded.secure_url, publicId: uploaded.public_id, classNum: recordingClass, subject: recordingSubject, durationSeconds: recordingDuration })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || `Could not publish recording (HTTP ${response.status})`);
       setRecordingTitle('');
-      setRecordingUrl('');
-      setRecordingMessage('Class recording published. Students will see it in Offline Lessons.');
+      setRecordingFile(null);
+      setRecordingDuration(0);
+      setRecordingMessage('Recording uploaded and published. Students assigned to this class can now find it in Offline Lessons.');
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not publish the class recording.');
     }
@@ -285,14 +341,19 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
       {recordingMessage && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{recordingMessage}</div>}
       {role === 'teacher' && (
         <form onSubmit={handlePublishRecording} className="rounded-3xl border border-indigo-200 bg-indigo-50/70 p-5 space-y-3">
-          <div><h2 className="font-black text-slate-900">Publish a Class Recording</h2><p className="mt-1 text-xs text-slate-600">Use a direct MP4/WebM video URL that students can access. Students can cache supported videos for offline playback.</p></div>
+          <div><h2 className="font-black text-slate-900">Record or Upload a Class Lesson</h2><p className="mt-1 text-xs text-slate-600">Videos upload to your configured Cloudinary account. Students can save published videos for offline playback.</p></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input required value={recordingTitle} onChange={(e) => setRecordingTitle(e.target.value)} placeholder="Recording title" className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm" />
-            <input required type="url" value={recordingUrl} onChange={(e) => setRecordingUrl(e.target.value)} placeholder="https://.../lesson.mp4" className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm" />
             <select value={recordingClass} onChange={(e) => setRecordingClass(Number(e.target.value))} className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm">{[1,2,3,4,5,6,7,8,9,10,11,12].map((c) => <option key={c} value={c}>Class {c}</option>)}</select>
             <select value={recordingSubject} onChange={(e) => setRecordingSubject(e.target.value)} className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm">{['Physics','Mathematics','Chemistry','Biology','Science','English','Odia','Social Science'].map((subject) => <option key={subject} value={subject}>{subject}</option>)}</select>
+            <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => { setRecordingFile(e.target.files?.[0] || null); setRecordingDuration(0); }} className="rounded-xl border border-indigo-200 bg-white p-2.5 text-sm" />
           </div>
-          <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700">Publish Recording to Students</button>
+          <div className="flex flex-wrap gap-2">
+            {!cameraRecording ? <button type="button" onClick={() => void startCameraRecording()} className="rounded-xl border border-indigo-300 bg-white px-4 py-2.5 text-xs font-bold text-indigo-700">Start Camera Recording</button> : <button type="button" onClick={stopCameraRecording} className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white">Stop Recording</button>}
+            {recordingFile && <span className="self-center text-xs font-semibold text-emerald-700">Ready: {recordingFile.name} ({(recordingFile.size / (1024 * 1024)).toFixed(1)} MB)</span>}
+          </div>
+          {cameraError && <p role="alert" className="text-xs text-rose-700">{cameraError}</p>}
+          <button type="submit" disabled={cameraRecording || !recordingFile} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50">Upload and Publish to Students</button>
         </form>
       )}
       {/* Header Banner */}
