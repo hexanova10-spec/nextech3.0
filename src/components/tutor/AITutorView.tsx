@@ -668,7 +668,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
-                          Live AI • Gemini 3.8 Flash
+                          Live AI • Gemini 2.5 Flash
                         </span>
                       )}
                     </div>
@@ -708,6 +708,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
                 )}
 
                 <div className="whitespace-pre-wrap font-sans space-y-2">{msg.text}</div>
+                {msg.isDemo && msg.demoNotice && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-900">{msg.demoNotice}</div>}
 
                 <div
                   className={`text-[10px] mt-2 pt-1 ${
