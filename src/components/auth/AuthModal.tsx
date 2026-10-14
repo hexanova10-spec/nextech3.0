@@ -40,6 +40,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [identifier, setIdentifier] = useState('subha@pathashala.edu');
   const [password, setPassword] = useState('password123');
   const [preferredLang, setPreferredLang] = useState('Odia');
+  const [preferredSubject, setPreferredSubject] = useState('Mathematics');
 
   // Register fields
   const [regName, setRegName] = useState('');
@@ -132,12 +133,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           school: regSchool,
           assignedClasses: regClasses,
           preferredLanguage: preferredLang,
+          preferredSubject,
           role: selectedRole,
           password: regPassword
         })
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        localStorage.setItem('pathashala_language', preferredLang);
+        localStorage.setItem('pathashala_subject', preferredSubject);
         setSuccessMessage('Student account created successfully!');
         setTimeout(() => {
           onSuccess(data.user, selectedRole);
@@ -428,6 +432,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   placeholder="Bhubaneswar Govt High School"
                   className="w-full px-3 py-2 rounded-xl border border-[#D5E9DC] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#006A4E]"
                 />
+              </div>
+
+              {selectedRole === 'student' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#18352A] mb-1">Main Subject to Study</label>
+                  <select value={preferredSubject} onChange={(e) => setPreferredSubject(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-[#D5E9DC] text-xs font-bold bg-white text-[#18352A] focus:outline-none focus:ring-2 focus:ring-[#006A4E]">
+                    {['Mathematics', 'Science', 'Physics', 'Chemistry', 'Biology', 'English', 'Odia', 'History', 'Geography', 'Computer Science'].map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+                  </select>
+                  <p className="mt-1 text-[10px] text-[#64776B]">You can change your main subject later from your Student Profile.</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-[#18352A] mb-1.5 flex items-center gap-1.5">
+                  <Languages className="w-3.5 h-3.5 text-[#006A4E]" />
+                  <span>Regional Language for the App and Tutor</span>
+                </label>
+                <select value={preferredLang} onChange={(e) => setPreferredLang(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-[#D5E9DC] text-xs font-bold bg-white text-[#18352A] focus:outline-none focus:ring-2 focus:ring-[#006A4E]">
+                  {INDIAN_LANGUAGES.map((lang) => <option key={lang.id} value={lang.name}>{lang.name} ({lang.nativeName})</option>)}
+                </select>
+                <p className="mt-1 text-[10px] text-[#64776B]">Greetings and supported learning guidance will follow your chosen language.</p>
               </div>
 
               {/* Strict Two-Class Limit Selector */}
