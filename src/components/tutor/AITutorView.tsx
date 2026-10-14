@@ -427,11 +427,10 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
         })
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(`Server returned HTTP ${response.status}`);
+        throw new Error(data.error || `AI request failed (HTTP ${response.status})`);
       }
-
-      const data = await response.json();
 
       // Step 4, 5, 6, 7: Act, Evaluate, Adapt, Save
       setActiveStep('ACT');
