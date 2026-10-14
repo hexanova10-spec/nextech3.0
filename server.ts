@@ -50,7 +50,8 @@ function createAccessToken(user: { id: string; role: string }): string {
 }
 
 // Initialize Google GenAI SDK if API key is present
-const apiKey = process.env.GEMINI_API_KEY;
+const configuredApiKey = process.env.GEMINI_API_KEY?.trim();
+const apiKey = configuredApiKey && !/^(MY_GEMINI_API_KEY|YOUR_GEMINI_API_KEY|replace[-_ ]?me|placeholder)$/i.test(configuredApiKey) ? configuredApiKey : '';
 let aiClient: GoogleGenAI | null = null;
 if (apiKey) {
   try {
@@ -75,6 +76,7 @@ const db: {
   parentReports: any[];
   activities: any[];
   notifications: any[];
+  recordings: any[];
 } = {
   users: [
     {
@@ -288,6 +290,7 @@ const db: {
       durationMinutes: 15
     }
   ],
+  recordings: [],
   notifications: [
     {
       id: 'NOTIF-S1',
@@ -342,7 +345,8 @@ app.use((req, res, next) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    hasApiKey: !!apiKey,
+    hasApiKey: Boolean(aiClient),
+    aiAvailable: Boolean(aiClient),
     app: 'PATHASHALA AI',
     version: '2.0.0',
     mode: apiKey ? 'Live AI (Gemini 2.5 Flash)' : 'Demo Agentic Engine',
@@ -461,6 +465,37 @@ app.post('/api/student/classes', (req, res) => {
     assignedClasses: assignedClasses.slice(0, 2),
     message: 'Classes updated successfully within the maximum two-class limit.'
   });
+});
+
+// ==========================================
+// CLASS RECORDINGS (metadata is shared; video files must be hosted at a reachable URL)
+// ==========================================
+
+app.get('/api/recordings', (req, res) => {
+  const classNum = req.query.classNum ? Number(req.query.classNum) : undefined;
+  const recordings = classNum ? db.recordings.filter((item) => item.classNum === classNum) : db.recordings;
+  return res.json({ recordings });
+});
+
+app.post('/api/recordings', (req, res) => {
+  const { title, classNum, subject, videoUrl, teacherName } = req.body || {};
+  if (typeof title !== 'string' || !title.trim() || !Number.isInteger(Number(classNum)) || Number(classNum) < 1 || Number(classNum) > 12 || typeof subject !== 'string' || !subject.trim() || typeof videoUrl !== 'string') {
+    return res.status(400).json({ error: 'Title, class (1–12), subject, and a direct video URL are required.' });
+  }
+  let parsedUrl: URL;
+  try { parsedUrl = new URL(videoUrl); } catch { return res.status(400).json({ error: 'Enter a valid direct MP4/WebM video URL.' }); }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) return res.status(400).json({ error: 'Video URL must use HTTP or HTTPS.' });
+  const recording = {
+    id: `REC-${Date.now()}-${randomBytes(3).toString('hex')}`,
+    title: title.trim().slice(0, 160),
+    classNum: Number(classNum),
+    subject: subject.trim().slice(0, 80),
+    videoUrl: parsedUrl.toString(),
+    teacherName: typeof teacherName === 'string' && teacherName.trim() ? teacherName.trim().slice(0, 100) : 'Teacher',
+    createdAt: new Date().toISOString()
+  };
+  db.recordings.unshift(recording);
+  return res.status(201).json({ success: true, recording });
 });
 
 // ==========================================
@@ -894,8 +929,9 @@ app.post('/api/gemini/tutor', async (req, res) => {
   return res.json({
     ...fallbackResponse,
     isDemo: true,
-    demoNotice:
-      'DEMO RESPONSE: Generated using PATHASHALA AI local curriculum engine (Configure GEMINI_API_KEY in Secrets for live AI)'
+    demoNotice: aiClient
+      ? 'Live Gemini request failed; this answer came from the local demo engine. Check the server logs and Gemini API key/quota.'
+      : 'Live AI is not connected. Set a valid GEMINI_API_KEY in the deployment environment; this response came from the local demo engine.'
   });
 });
 
