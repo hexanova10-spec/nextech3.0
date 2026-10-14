@@ -548,7 +548,7 @@ app.post('/api/focus-events', (req, res) => {
   if (!db.focusEvents) db.focusEvents = [];
   db.focusEvents.unshift(event);
 
-  const createNotification = (recipientRole, recipientId, title, message, category = 'focus') => {
+  const createNotification = (recipientRole: 'student' | 'parent', recipientId: string, title: string, message: string, category = 'focus') => {
     db.notifications.unshift({
       id: `NOTIF-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       recipientRole,
