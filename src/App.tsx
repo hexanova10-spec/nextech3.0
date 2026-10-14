@@ -31,6 +31,7 @@ import { AILearningInsightsView } from './components/insights/AILearningInsights
 import { DailyActivityView } from './components/activity/DailyActivityView';
 import { NotificationDrawer } from './components/notifications/NotificationDrawer';
 import { AuthModal } from './components/auth/AuthModal';
+import { LoginPage } from './components/auth/LoginPage';
 import { ClassSelector } from './components/classes/ClassSelector';
 import { LanguageCenter } from './components/language/LanguageCenter';
 import {
@@ -64,6 +65,7 @@ import {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User>(DEMO_USERS[0]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<UserRole>('student');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
@@ -142,6 +144,7 @@ export default function App() {
 
   const handleAuthSuccess = (user: User, newRole: UserRole) => {
     setCurrentUser(user);
+    setIsAuthenticated(true);
     setRole(newRole);
     if (newRole === 'teacher') {
       setActiveTab('teacher');
@@ -203,6 +206,8 @@ export default function App() {
     setActiveTab(tabId);
     setIsMobileMenuOpen(false);
   };
+
+  if (!isAuthenticated) return <LoginPage onLoginSuccess={handleAuthSuccess} />;
 
   return (
     <div
