@@ -986,9 +986,8 @@ function buildSystemInstruction(
       'SPECIFIC ACTION: Format as a strict Step-by-Step procedural derivation or numerical calculation with given values, formula used, substitution, calculation, and final result with units.';
   } else if (action === 'generate_quiz') {
     actionGuidance =
-      'SPECIFIC ACTION: Generate 2 high-quality multiple choice questions (with 4 options each) based on this concept, suitable for Class ' +
-      classNum +
-      ', along with the correct answer and a brief explanation.';
+      'SPECIFIC ACTION: Generate the number of high-quality multiple-choice questions requested by the user (default to 2 if no count is specified), with four options each, correct answers, and brief explanations, suitable for Class ' +
+      classNum + '.';
   } else if (action === 'save_notes') {
     actionGuidance =
       'SPECIFIC ACTION: Format as crisp, bulleted revision study notes highlighting Key Definition, Must-Remember Formula, and High-Yield Board Exam Points.';
