@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #006A4E;
+  --color-primary-hover: #004B38;
+  --color-primary-deep: #004B38;
+  --color-secondary: #0B8457;
+  --color-secondary-light: #DFF3E8;
+  --color-bg-light: #F4FBF6;
+  --color-card-bg: #FFFFFF;
+  --color-border-pale: #D5E9DC;
+  --color-text-main: #18352A;
+  --color-text-muted: #64776B;
+  --color-status-success: #238653;
+  --color-status-warning: #D99A24;
+  --color-status-error: #C84545;
+
+  /* Remap indigo / violet / purple / blue scales to the bottle-green design system */
+  --color-indigo-50: #F4FBF6;
+  --color-indigo-100: #DFF3E8;
+  --color-indigo-200: #D5E9DC;
+  --color-indigo-300: #A5D9C2;
+  --color-indigo-400: #4DAE89;
+  --color-indigo-500: #0B8457;
+  --color-indigo-600: #006A4E;
+  --color-indigo-700: #004B38;
+  --color-indigo-800: #003627;
+  --color-indigo-900: #18352A;
+  --color-indigo-950: #0C1E16;
+
+  --color-violet-50: #F4FBF6;
+  --color-violet-100: #DFF3E8;
+  --color-violet-200: #D5E9DC;
+  --color-violet-300: #A5D9C2;
+  --color-violet-400: #4DAE89;
+  --color-violet-500: #0B8457;
+  --color-violet-600: #006A4E;
+  --color-violet-700: #004B38;
+  --color-violet-800: #003627;
+  --color-violet-900: #18352A;
+  --color-violet-950: #0C1E16;
+
+  --color-purple-50: #F4FBF6;
+  --color-purple-100: #DFF3E8;
+  --color-purple-200: #D5E9DC;
+  --color-purple-300: #A5D9C2;
+  --color-purple-400: #4DAE89;
+  --color-purple-500: #0B8457;
+  --color-purple-600: #006A4E;
+  --color-purple-700: #004B38;
+  --color-purple-800: #003627;
+  --color-purple-900: #18352A;
+  --color-purple-950: #0C1E16;
+
+  --color-blue-50: #F4FBF6;
+  --color-blue-100: #DFF3E8;
+  --color-blue-200: #D5E9DC;
+  --color-blue-300: #A5D9C2;
+  --color-blue-400: #4DAE89;
+  --color-blue-500: #0B8457;
+  --color-blue-600: #006A4E;
+  --color-blue-700: #004B38;
+  --color-blue-800: #003627;
+  --color-blue-900: #18352A;
+  --color-blue-950: #0C1E16;
+
+  --color-emerald-50: #F4FBF6;
+  --color-emerald-100: #DFF3E8;
+  --color-emerald-200: #D5E9DC;
+  --color-emerald-300: #A5D9C2;
+  --color-emerald-400: #4DAE89;
+  --color-emerald-500: #0B8457;
+  --color-emerald-600: #006A4E;
+  --color-emerald-700: #004B38;
+  --color-emerald-800: #003627;
+  --color-emerald-900: #18352A;
+  --color-emerald-950: #0C1E16;
+
+  /* Remap slate / gray to deep bottle-green darks and pale mint borders */
+  --color-slate-50: #F4FBF6;
+  --color-slate-100: #EBF7F0;
+  --color-slate-200: #D5E9DC;
+  --color-slate-300: #BBD6C7;
+  --color-slate-400: #8DA797;
+  --color-slate-500: #64776B;
+  --color-slate-600: #495D51;
+  --color-slate-700: #32463B;
+  --color-slate-800: #1F362C;
+  --color-slate-900: #18352A;
+  --color-slate-950: #0F221A;
+}
+
+@layer base {
+  body {
+    background-color: #F4FBF6;
+    color: #18352A;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+.font-odia {
+  font-family: 'Noto Sans Oriya', 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-hindi {
+  font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-urdu {
+  font-family: 'Noto Nastaliq Urdu', 'Noto Sans Devanagari', 'Plus Jakarta Sans', serif;
+  direction: rtl;
+}
+
+.font-telugu {
+  font-family: 'Noto Sans Telugu', 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-tamil {
+  font-family: 'Noto Sans Tamil', 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-bengali {
+  font-family: 'Noto Sans Bengali', 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Custom subtle bottle green scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #BBD6C7;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #006A4E;
+}

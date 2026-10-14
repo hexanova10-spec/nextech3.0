@@ -1,0 +1,6 @@
+{
+  "name": "PATHASHALA AI",
+  "description": "One AI. Every Language. Every Learner. Multilingual Personalised Educational Platform for Indian school students Classes 1 to 12 with regional keyboards, adaptive learning paths, and offline capabilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
