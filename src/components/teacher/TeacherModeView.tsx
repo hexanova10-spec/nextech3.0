@@ -85,7 +85,7 @@ export const TeacherModeView: React.FC<TeacherModeViewProps> = ({
           board: 'Odisha State Board (BSE) / CBSE',
           targetLanguage: language,
           textbookLanguage: 'English',
-          action: toolAction
+          action: toolAction === 'quiz' ? 'generate_quiz' : toolAction
         })
       });
       const data = await response.json();

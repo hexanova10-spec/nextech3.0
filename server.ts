@@ -1106,20 +1106,14 @@ app.post('/api/gemini/tutor', async (req, res) => {
     }
   }
 
-  // Deterministic pedagogical fallback
-  const fallbackResponse = generateAgenticFallback(
-    queryText,
-    Number(classNum),
-    subject,
-    targetLanguage,
-    action
-  );
-  return res.json({
-    ...fallbackResponse,
+  // Never return a canned answer for an unrelated question when live generation fails.
+  // A clear error is safer than presenting incorrect content as an AI answer.
+  return res.status(503).json({
+    error: aiClient
+      ? 'Gemini could not generate a response right now. Please try again shortly. If this continues, check the Render logs for Gemini API quota, model, or key errors.'
+      : 'Live AI is not connected. Add a valid GEMINI_API_KEY to the Render backend environment and redeploy.',
     isDemo: true,
-    demoNotice: aiClient
-      ? 'Live Gemini request failed; this answer came from the local demo engine. Check the server logs and Gemini API key/quota.'
-      : 'Live AI is not connected. Set a valid GEMINI_API_KEY in the deployment environment; this response came from the local demo engine.'
+    source: 'gemini-unavailable'
   });
 });
 
