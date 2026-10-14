@@ -558,7 +558,7 @@ app.post('/api/auth/login', (req, res) => {
 
 // Auth Register (STRICT TWO-CLASS LIMIT ENFORCED)
 app.post('/api/auth/register', (req, res) => {
-  const { name, email, identifier, school, assignedClasses = [], preferredLanguage, role = 'student', password } = req.body || {};
+  const { name, email, identifier, school, assignedClasses = [], preferredLanguage, preferredSubject, role = 'student', password } = req.body || {};
 
   if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!['student', 'teacher', 'parent'].includes(role)) return res.status(400).json({ error: 'Role must be student, teacher, or parent.' });
@@ -591,7 +591,8 @@ app.post('/api/auth/register', (req, res) => {
     assignedClasses: role === 'student' ? (assignedClasses.length > 0 ? assignedClasses.slice(0, 2) : [10]) : [],
     teachingClasses: role === 'teacher' ? [10] : undefined,
     linkedStudentIds: role === 'parent' ? [] : undefined,
-    preferredLanguage: preferredLanguage || 'Odia'
+    preferredLanguage: preferredLanguage || 'Odia',
+    preferredSubject: role === 'student' ? (typeof preferredSubject === 'string' && preferredSubject.trim() ? preferredSubject.trim() : 'Mathematics') : undefined
   };
 
   db.users.push(newUser);
