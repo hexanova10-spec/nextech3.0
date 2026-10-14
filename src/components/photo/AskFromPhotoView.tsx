@@ -28,16 +28,50 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
     }
   ];
 
+  // Convert uploads and built-in SVG samples to a compact JPEG accepted by the vision API.
+  const normalizeImageForUpload = (dataUrl: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const maxDimension = 1800;
+          const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Your browser could not prepare this image. Please try another photo.');
+          context.fillStyle = '#ffffff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.86));
+        } catch (error) { reject(error); }
+      };
+      image.onerror = () => reject(new Error('This image could not be read. Please choose a JPG or PNG photo.'));
+      image.src = dataUrl;
+    });
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setSelectedImage(reader.result as string);
-        setResult(null);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setResult('Please choose an image file (JPG, PNG, or WebP).');
+      e.target.value = '';
+      return;
     }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const normalized = await normalizeImageForUpload(String(reader.result || ''));
+        setSelectedImage(normalized);
+        setResult(null);
+      } catch (error) {
+        setResult(error instanceof Error ? error.message : 'Could not prepare this image. Please try another photo.');
+      }
+    };
+    reader.onerror = () => setResult('The selected image could not be read. Please try again.');
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleAnalyze = async () => {
@@ -164,9 +198,13 @@ export const AskFromPhotoView: React.FC<AskFromPhotoViewProps> = ({ profile, act
                   {sampleImages.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => {
-                        setSelectedImage(s.dataUrl);
-                        setResult(null);
+                      onClick={async () => {
+                        try {
+                          setSelectedImage(await normalizeImageForUpload(s.dataUrl));
+                          setResult(null);
+                        } catch (error) {
+                          setResult(error instanceof Error ? error.message : 'Could not prepare this sample image.');
+                        }
                       }}
                       className="w-full p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/30 text-left text-xs font-semibold text-slate-700 flex items-center justify-between transition"
                     >

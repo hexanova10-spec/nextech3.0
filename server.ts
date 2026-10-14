@@ -1147,6 +1147,7 @@ app.post('/api/gemini/tutor', async (req, res) => {
 
 // Photo doubt solver vision endpoint
 app.post('/api/gemini/vision', async (req, res) => {
+  let visionErrorMessage = '';
   const { imageBase64, classNum = 10, subject = 'Physics', language = 'Odia', prompt } = req.body;
 
   if (typeof imageBase64 !== 'string' || !/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(imageBase64)) {
@@ -1196,14 +1197,17 @@ Additional Student Request: ${prompt || 'Solve step by step'}`
         });
       }
     } catch (e: any) {
-      console.warn('Gemini vision API error:', e?.message);
+      visionErrorMessage = String(e?.message || e?.error?.message || 'Unknown Gemini image-analysis error').slice(0, 500);
+      console.warn('Gemini vision API error:', visionErrorMessage);
     }
   }
 
   return res.status(503).json({
-    error: 'Live image analysis is not available right now. Configure a valid GEMINI_API_KEY on the backend, then try again. No answer was generated from the image.',
+    error: aiClient
+      ? `Gemini image analysis failed: ${visionErrorMessage || 'The model returned no solution.'} Please try again shortly.`
+      : 'Live image analysis is not connected. Add a valid GEMINI_API_KEY to the Render backend environment and redeploy. No answer was generated from the image.',
     isDemo: true,
-    source: 'offline-agent-engine'
+    source: 'gemini-unavailable'
   });
 });
 
