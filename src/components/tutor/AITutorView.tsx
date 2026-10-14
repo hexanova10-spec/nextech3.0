@@ -453,7 +453,7 @@ You can ask me questions in **${profile.tutorLanguage}**, type with the regional
         toolUsed: `GeminiAgent.${actionType}(class: ${profile.classNum}, lang: ${profile.tutorLanguage})`,
         outcome: data.isDemo
           ? 'Formulated scaffolded answer using local pedagogical agent engine'
-          : 'Answer synthesized via Gemini 3.8 Flash model',
+          : 'Answer synthesized via Gemini 2.5 Flash model',
         nextRecommendedAction: actionType === 'explain_simply' ? 'show_steps' : 'generate_quiz'
       };
 
