@@ -26,7 +26,8 @@ import {
   ChevronRight,
   Eye,
   MessageSquare,
-  FileCheck
+  FileCheck,
+  Sparkles
 } from 'lucide-react';
 
 interface HomeworkViewProps {
@@ -67,6 +68,8 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
   );
   const [gradeMarks, setGradeMarks] = useState(18);
   const [gradeFeedback, setGradeFeedback] = useState('');
+  const [isSuggestingGrade, setIsSuggestingGrade] = useState(false);
+  const [aiGradeSuggestion, setAiGradeSuggestion] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [recordingTitle, setRecordingTitle] = useState('');
   const [recordingUrl, setRecordingUrl] = useState('');
@@ -207,6 +210,45 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
     setIsCreatingHomework(false);
     setNewTitle('');
     setNewInstructions('');
+  };
+
+  const handleSuggestGrade = async () => {
+    if (!selectedSubForGrading) return;
+    setIsSuggestingGrade(true);
+    setAiGradeSuggestion(null);
+    setActionError(null);
+    const assignment = assignments.find((item) => item.id === selectedSubForGrading.assignmentId);
+    const prompt = [
+      'You are assisting a school teacher with a draft assessment. Do not finalize or release marks.',
+      `Assignment: ${assignment?.title || selectedSubForGrading.assignmentId}`,
+      `Subject: ${assignment?.subject || selectedSubForGrading.subject || 'General'}`,
+      `Instructions/question: ${assignment?.instructions || 'Use the assignment title and student answer to infer the task cautiously.'}`,
+      `Maximum marks: ${selectedSubForGrading.maxMarks}`,
+      `Student answer: ${selectedSubForGrading.textAnswer || '[No typed answer provided; attached file is not available to this AI request.]'}`,
+      'Give a suggested score out of the maximum marks, explain which parts are correct or missing, write constructive feedback, and show a concise model answer. State uncertainty where the question or student work is incomplete.'
+    ].join('\n\n');
+    try {
+      const response = await fetch('/api/gemini/tutor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: prompt,
+          classNum: selectedSubForGrading.classNum || assignments.find((item) => item.id === selectedSubForGrading.assignmentId)?.classNum || profile.classNum,
+          subject: assignment?.subject || selectedSubForGrading.subject || 'General',
+          board: profile.schoolBoard,
+          targetLanguage: profile.tutorLanguage || 'English',
+          textbookLanguage: profile.textbookLanguage || 'English',
+          action: 'grade_homework'
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `AI grading request failed (HTTP ${response.status})`);
+      setAiGradeSuggestion(`${data.answer || 'The AI did not return a grading suggestion.'}${data.isDemo ? `\n\nDemo mode: ${data.demoNotice || 'Configure GEMINI_API_KEY on the backend for live AI.'}` : ''}`);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not generate an AI grading suggestion.');
+    } finally {
+      setIsSuggestingGrade(false);
+    }
   };
 
   const handleTeacherGradeSubmit = async () => {
@@ -682,6 +724,29 @@ export const HomeworkView: React.FC<HomeworkViewProps> = ({ role, profile }) => 
                 {selectedSubForGrading.textAnswer}
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={handleSuggestGrade}
+              disabled={isSuggestingGrade}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 font-bold text-violet-800 hover:bg-violet-100 disabled:opacity-50"
+            >
+              <Sparkles className="w-4 h-4" />
+              {isSuggestingGrade ? 'AI is reviewing the answer…' : 'Suggest marks & feedback with AI'}
+            </button>
+            {aiGradeSuggestion && (
+              <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 space-y-2">
+                <p className="font-black text-violet-900">AI draft — teacher must verify</p>
+                <p className="whitespace-pre-wrap leading-relaxed text-slate-700">{aiGradeSuggestion}</p>
+                <button
+                  type="button"
+                  onClick={() => setGradeFeedback(aiGradeSuggestion)}
+                  className="rounded-lg border border-violet-200 bg-white px-3 py-1.5 font-bold text-violet-800 hover:bg-violet-100"
+                >
+                  Copy AI draft into feedback field
+                </button>
+              </div>
+            }
 
             <div>
               <label className="block font-bold text-[#18352A] mb-1">
