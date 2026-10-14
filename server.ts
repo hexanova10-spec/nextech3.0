@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+import { Pool, type PoolClient } from 'pg';
 
 dotenv.config();
 
@@ -319,20 +320,154 @@ const db: {
   ]
 };
 
-// Persist successful mutations before sending responses; load saved records at startup.
-app.use((req, res, next) => {
+// PostgreSQL is the shared source of truth for users, homework, submissions, and recordings.
+// If DATABASE_URL is absent, the existing local JSON prototype store remains available.
+const pgPool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: Number(process.env.PG_POOL_MAX) || 5,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 10_000
+    })
+  : null;
+
+type RelationalCollection = 'users' | 'homework' | 'submissions' | 'recordings';
+
+async function upsertCollection(client: PoolClient, collection: RelationalCollection, records: any[]) {
+  for (const record of records) {
+    const payload = JSON.stringify(record);
+    if (collection === 'users') {
+      await client.query(
+        'INSERT INTO users (id, email, role, payload) VALUES ($1, $2, $3, $4::jsonb) ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, role = EXCLUDED.role, payload = EXCLUDED.payload, updated_at = now()',
+        [record.id, record.email || '', record.role || 'student', payload]
+      );
+    } else if (collection === 'homework') {
+      await client.query(
+        'INSERT INTO homework (id, class_num, teacher_id, due_date, payload) VALUES ($1, $2, $3, $4, $5::jsonb) ON CONFLICT (id) DO UPDATE SET class_num = EXCLUDED.class_num, teacher_id = EXCLUDED.teacher_id, due_date = EXCLUDED.due_date, payload = EXCLUDED.payload, updated_at = now()',
+        [record.id, Number(record.classNum) || 1, record.teacherId || null, record.dueDate || null, payload]
+      );
+    } else if (collection === 'submissions') {
+      await client.query(
+        'INSERT INTO submissions (id, assignment_id, student_id, status, payload) VALUES ($1, $2, $3, $4, $5::jsonb) ON CONFLICT (id) DO UPDATE SET assignment_id = EXCLUDED.assignment_id, student_id = EXCLUDED.student_id, status = EXCLUDED.status, payload = EXCLUDED.payload, updated_at = now()',
+        [record.id, record.assignmentId || '', record.studentId || '', record.status || 'Submitted', payload]
+      );
+    } else {
+      await client.query(
+        'INSERT INTO class_recordings (id, class_num, teacher_id, payload) VALUES ($1, $2, $3, $4::jsonb) ON CONFLICT (id) DO UPDATE SET class_num = EXCLUDED.class_num, teacher_id = EXCLUDED.teacher_id, payload = EXCLUDED.payload, updated_at = now()',
+        [record.id, Number(record.classNum) || 1, record.teacherId || null, payload]
+      );
+    }
+  }
+}
+
+async function persistPostgresCollections() {
+  if (!pgPool) return;
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    await upsertCollection(client, 'users', db.users);
+    await upsertCollection(client, 'homework', db.homework);
+    await upsertCollection(client, 'submissions', db.submissions);
+    await upsertCollection(client, 'recordings', db.recordings);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function loadPostgresCollections() {
+  if (!pgPool) return;
+  const [users, homework, submissions, recordings] = await Promise.all([
+    pgPool.query('SELECT payload FROM users ORDER BY created_at ASC'),
+    pgPool.query('SELECT payload FROM homework ORDER BY created_at ASC'),
+    pgPool.query('SELECT payload FROM submissions ORDER BY created_at ASC'),
+    pgPool.query('SELECT payload FROM class_recordings ORDER BY created_at ASC')
+  ]);
+  db.users = users.rows.map((row) => row.payload);
+  db.homework = homework.rows.map((row) => row.payload);
+  db.submissions = submissions.rows.map((row) => row.payload);
+  db.recordings = recordings.rows.map((row) => row.payload);
+}
+
+async function initializePostgresStore() {
+  if (!pgPool) return;
+  const migrationPath = path.resolve(__dirname, 'migrations/001_initial.sql');
+  const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+  await pgPool.query(migrationSql);
+
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const tableCounts: Record<RelationalCollection, number> = {
+      users: Number((await client.query('SELECT count(*)::int AS count FROM users')).rows[0].count),
+      homework: Number((await client.query('SELECT count(*)::int AS count FROM homework')).rows[0].count),
+      submissions: Number((await client.query('SELECT count(*)::int AS count FROM submissions')).rows[0].count),
+      recordings: Number((await client.query('SELECT count(*)::int AS count FROM class_recordings')).rows[0].count)
+    };
+    // Seed each table independently, and never overwrite a non-empty Neon table.
+    if (tableCounts.users === 0) await upsertCollection(client, 'users', db.users);
+    if (tableCounts.homework === 0) await upsertCollection(client, 'homework', db.homework);
+    if (tableCounts.submissions === 0) await upsertCollection(client, 'submissions', db.submissions);
+    if (tableCounts.recordings === 0) await upsertCollection(client, 'recordings', db.recordings);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  await loadPostgresCollections();
+
+  // Migrate any legacy plain-text passwords already present in PostgreSQL.
+  let changedPasswords = false;
+  for (const user of db.users) {
+    if (typeof user.password === 'string' && !user.password.startsWith('scrypt$')) {
+      user.password = hashPassword(user.password);
+      changedPasswords = true;
+    }
+  }
+  if (changedPasswords) await persistPostgresCollections();
+  console.log('Connected to PostgreSQL and loaded shared Pathashala records.');
+}
+
+// Successful mutations are committed to PostgreSQL before a success response is sent.
+// Other prototype collections continue to be saved to the local JSON file.
+app.use(async (req, res, next) => {
+  if (pgPool && req.path !== '/api/health') {
+    try {
+      await loadPostgresCollections();
+    } catch (error: any) {
+      console.error('PostgreSQL request refresh failed:', error?.message || error);
+      return res.status(503).json({ error: 'The database is temporarily unavailable. Please retry.' });
+    }
+  }
+
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   const sendJson = res.json.bind(res);
   res.json = ((body: any) => {
     if (res.statusCode >= 400) return sendJson(body);
-    try {
-      fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
-      fs.writeFileSync(STORE_FILE, JSON.stringify(db, null, 2), { encoding: 'utf8', mode: 0o600 });
-    } catch (error: any) {
+    const persistThenRespond = async () => {
+      if (pgPool) await persistPostgresCollections();
+      try {
+        fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
+        fs.writeFileSync(STORE_FILE, JSON.stringify(db, null, 2), { encoding: 'utf8', mode: 0o600 });
+      } catch (error: any) {
+        console.error('Failed to persist the local Pathashala snapshot:', error?.message || error);
+        if (!pgPool) throw error;
+      }
+      return sendJson(body);
+    };
+    void persistThenRespond().catch((error: any) => {
       console.error('Failed to persist Pathashala data:', error?.message || error);
-      if (!res.headersSent) return sendJson({ error: 'The change could not be saved. Please retry.' });
-    }
-    return sendJson(body);
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        sendJson({ error: 'The change could not be saved. Please retry.' });
+      }
+    });
+    return res;
   }) as typeof res.json;
   next();
 });
@@ -342,7 +477,19 @@ app.use((req, res, next) => {
 // ==========================================
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let databaseConnected = false;
+  let database = 'Local JSON fallback (DATABASE_URL is not configured)';
+  if (pgPool) {
+    database = 'PostgreSQL';
+    try {
+      await pgPool.query('SELECT 1');
+      databaseConnected = true;
+      database = 'PostgreSQL (Neon-compatible)';
+    } catch (error: any) {
+      console.error('PostgreSQL health check failed:', error?.message || error);
+    }
+  }
   res.json({
     status: 'ok',
     hasApiKey: Boolean(aiClient),
@@ -350,7 +497,8 @@ app.get('/api/health', (req, res) => {
     app: 'PATHASHALA AI',
     version: '2.0.0',
     mode: aiClient ? 'Live AI (Gemini 2.5 Flash)' : 'Demo Agentic Engine',
-    database: 'File-backed JSON store (prototype; use a managed database for production)'
+    database,
+    databaseConnected
   });
 });
 
@@ -1138,6 +1286,20 @@ async function startServer() {
       console.log('Saved hashed demo credentials to the local data store.');
     } catch (error: any) {
       console.error('Could not save migrated credentials:', error?.message || error);
+    }
+  }
+
+  if (pgPool) {
+    try {
+      await initializePostgresStore();
+      // Write the loaded relational records into the local snapshot only as a convenience.
+      fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
+      fs.writeFileSync(STORE_FILE, JSON.stringify(db, null, 2), { encoding: 'utf8', mode: 0o600 });
+    } catch (error: any) {
+      console.error('Could not initialize PostgreSQL. Refusing to start with a broken configured database:', error?.message || error);
+      await pgPool.end();
+      process.exitCode = 1;
+      return;
     }
   }
 
