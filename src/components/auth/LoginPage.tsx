@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, LockKeyhole, Mail, ArrowRight, BookOpen, ShieldCheck, Languages, Sparkles, Eye, EyeOff, AlertCircle, LoaderCircle } from 'lucide-react';
+import { GraduationCap, LockKeyhole, Mail, ArrowUpRight, BookOpen, ShieldCheck, Languages, Sparkles, Eye, EyeOff, AlertCircle, LoaderCircle, Orbit, Atom, AudioWaveform, BrainCircuit, Stars } from 'lucide-react';
 import type { User, UserRole } from '../../types';
 
 interface LoginPageProps {
@@ -12,6 +12,12 @@ const DEMO_ACCOUNTS: { role: UserRole; label: string; identifier: string; passwo
   { role: 'parent', label: 'Parent', identifier: 'ananya.nayak@pathashala.edu', password: 'password123', name: 'Ananya Nayak' }
 ];
 
+const ROLE_COPY: Record<UserRole, { eyebrow: string; title: string; accent: string; soft: string; description: string }> = {
+  student: { eyebrow: 'YOUR SPACE TO GROW', title: 'Curiosity has\nno limits.', accent: '#A3FFCB', soft: '#1B8C68', description: 'Explore ideas, ask anything, and make learning yours.' },
+  teacher: { eyebrow: 'YOUR SPACE TO INSPIRE', title: 'Every lesson\ncan spark.', accent: '#FFE49A', soft: '#B88731', description: 'Bring your classroom to life with a little help from AI.' },
+  parent: { eyebrow: 'YOUR SPACE TO CONNECT', title: 'Be part of\nthe journey.', accent: '#B8D9FF', soft: '#4387D6', description: 'Celebrate progress and support every next step.' }
+};
+
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [role, setRole] = useState<UserRole>('student');
   const [identifier, setIdentifier] = useState('subha@pathashala.edu');
@@ -19,17 +25,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showDemo, setShowDemo] = useState(true);
-  const [pointer, setPointer] = useState({ x: -200, y: -200 });
-  const [heroTilt, setHeroTilt] = useState({ x: 0, y: 0 });
+  const [showDemo, setShowDemo] = useState(false);
+  const [pointer, setPointer] = useState({ x: 50, y: 50 });
+  const copy = ROLE_COPY[role];
 
   const handlePointerMove = (event: React.MouseEvent<HTMLElement>) => {
-    setPointer({ x: event.clientX, y: event.clientY });
-    const bounds = event.currentTarget.getBoundingClientRect();
-    setHeroTilt({
-      x: ((event.clientY - bounds.top) / bounds.height - 0.5) * -5,
-      y: ((event.clientX - bounds.left) / bounds.width - 0.5) * 5
-    });
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPointer({ x: ((event.clientX - rect.left) / rect.width) * 100, y: ((event.clientY - rect.top) / rect.height) * 100 });
   };
 
   const chooseDemo = (account: typeof DEMO_ACCOUNTS[number]) => {
@@ -37,6 +39,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIdentifier(account.identifier);
     setPassword(account.password);
     setError('');
+    setShowDemo(false);
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -64,80 +67,102 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <main onMouseMove={handlePointerMove} onMouseLeave={() => { setPointer({ x: -200, y: -200 }); setHeroTilt({ x: 0, y: 0 }); }} className="pathashala-login relative isolate min-h-screen overflow-hidden bg-[#F4FBF6] text-[#18352A] grid lg:grid-cols-[1.05fr_0.95fr]">
+    <main
+      onMouseMove={handlePointerMove}
+      className="pathashala-login relative min-h-screen overflow-hidden bg-[#061D17] text-white selection:bg-emerald-200 selection:text-[#06271C]"
+      style={{ '--role-accent': copy.accent, '--role-soft': copy.soft, '--pointer-x': pointer.x + '%', '--pointer-y': pointer.y + '%' } as React.CSSProperties}
+    >
       <style>{`
-        @keyframes pl-drift { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(26px,-30px,0) scale(1.08); } }
-        @keyframes pl-float { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-16px) rotate(5deg); } }
-        @keyframes pl-shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
-        @keyframes pl-orbit { from { transform: rotate(0deg) translateX(20px) rotate(0deg); } to { transform: rotate(360deg) translateX(20px) rotate(-360deg); } }
-        .pl-orb { animation: pl-drift 9s ease-in-out infinite; }
-        .pl-orb-delay { animation: pl-drift 12s ease-in-out -4s infinite; }
-        .pl-float { animation: pl-float 5s ease-in-out infinite; }
-        .pl-float-delay { animation: pl-float 6s ease-in-out -2s infinite; }
-        .pl-shimmer { background-size: 200% 100%; animation: pl-shimmer 4s linear infinite; }
-        .pathashala-login button { -webkit-tap-highlight-color: transparent; }
-        @media (prefers-reduced-motion: reduce) { .pl-orb,.pl-orb-delay,.pl-float,.pl-float-delay,.pl-shimmer { animation: none !important; } }
+        @keyframes orbit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes orbit-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+        @keyframes breathe { 0%,100% { transform: scale(.96); opacity:.72; } 50% { transform: scale(1.06); opacity:1; } }
+        @keyframes rise { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
+        @keyframes reveal { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+        @keyframes scan { 0% { transform: translateY(-120%); } 100% { transform: translateY(380%); } }
+        .pl-orbit { animation: orbit-spin 24s linear infinite; }
+        .pl-orbit-reverse { animation: orbit-reverse 30s linear infinite; }
+        .pl-breathe { animation: breathe 6s ease-in-out infinite; }
+        .pl-rise { animation: rise 5s ease-in-out infinite; }
+        .pl-reveal { animation: reveal .65s cubic-bezier(.2,.8,.2,1) both; }
+        .pl-scan { animation: scan 7s ease-in-out infinite; }
+        .pl-stage { background: radial-gradient(600px circle at var(--pointer-x) var(--pointer-y), color-mix(in srgb, var(--role-soft) 22%, transparent), transparent 70%), #061D17; }
+        .pl-role-active { color:#06271C; background:var(--role-accent); box-shadow:0 8px 35px color-mix(in srgb, var(--role-accent) 24%, transparent); }
+        .pl-role-idle { color:#91A69C; background:transparent; }
+        .pl-role-idle:hover { color:white; background:rgba(255,255,255,.07); }
+        .pl-input { background:rgba(255,255,255,.045); border:1px solid rgba(206,231,219,.14); transition:all .25s ease; }
+        .pl-input:focus-within { border-color:var(--role-accent); background:rgba(255,255,255,.075); box-shadow:0 0 0 4px color-mix(in srgb, var(--role-accent) 12%, transparent); transform:translateY(-1px); }
+        .pl-submit { background:var(--role-accent); color:#06271C; transition:transform .25s ease, box-shadow .25s ease; }
+        .pl-submit:hover { transform:translateY(-2px); box-shadow:0 14px 40px color-mix(in srgb, var(--role-accent) 20%, transparent); }
+        .pl-submit:active { transform:translateY(0) scale(.99); }
+        @media (prefers-reduced-motion: reduce) { .pl-orbit,.pl-orbit-reverse,.pl-breathe,.pl-rise,.pl-reveal,.pl-scan { animation:none !important; } }
       `}</style>
-      <div aria-hidden="true" className="pointer-events-none absolute -right-20 top-12 -z-0 h-72 w-72 rounded-full bg-emerald-300/30 blur-3xl pl-orb" />
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 left-[38%] -z-0 h-80 w-80 rounded-full bg-teal-200/40 blur-3xl pl-orb-delay" />
-      <div aria-hidden="true" className="pointer-events-none fixed z-40 h-64 w-64 rounded-full opacity-55 blur-3xl transition-[left,top] duration-100" style={{ left: pointer.x, top: pointer.y, transform: 'translate(-50%, -50%)', background: role === 'teacher' ? '#F59E0B' : role === 'parent' ? '#60A5FA' : '#34D399' }} />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-0 opacity-[0.18]" style={{ backgroundImage: 'radial-gradient(#0B8457 0.8px, transparent 0.8px)', backgroundSize: '22px 22px' }} />
-      <section style={{ transform: `perspective(1200px) rotateX(${heroTilt.x}deg) rotateY(${heroTilt.y}deg)` }} className="relative z-10 hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#003627] via-[#006A4E] to-[#0B8457] p-12 xl:p-16 text-white transition-transform duration-200 ease-out">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-30" style={{ background: `radial-gradient(circle at ${Math.max(0, Math.min(100, 50 + heroTilt.y * 5))}% ${Math.max(0, Math.min(100, 50 + heroTilt.x * -5))}%, rgba(255,255,255,0.45), transparent 35%)` }} />
-        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full border border-white/15 pl-float" />
-        <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full border border-white/15 pl-float-delay" />
-        <div className="absolute -bottom-28 -left-20 h-96 w-96 rounded-full bg-emerald-300/10 blur-2xl pl-orb" />
-        <div aria-hidden="true" className="absolute right-[18%] top-[22%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_30px_8px_rgba(252,211,77,0.25)] pl-float" />
-        <div aria-hidden="true" className="absolute bottom-[28%] right-[10%] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_24px_6px_rgba(165,243,252,0.3)] pl-float-delay" />
-        <div className="relative flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/25 shadow-lg shadow-black/10 transition duration-500 hover:rotate-12 hover:scale-110"><Sparkles className="h-6 w-6 text-amber-300" /></div>
-          <div><p className="text-xl font-black tracking-tight">PATHASHALA AI</p><p className="text-xs text-emerald-100">One AI. Every Language. Every Learner.</p></div>
+
+      <div className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.13) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.13) 1px, transparent 1px)', backgroundSize: '64px 64px', maskImage: 'linear-gradient(to bottom, black, transparent 88%)' }} />
+      <div className="pointer-events-none absolute -left-44 -top-40 h-[32rem] w-[32rem] rounded-full blur-[110px] transition-colors duration-700" style={{ background: copy.soft, opacity: .28 }} />
+      <div className="pointer-events-none absolute -bottom-48 right-[20%] h-[35rem] w-[35rem] rounded-full bg-emerald-700/20 blur-[120px]" />
+
+      <header className="relative z-20 flex items-center justify-between px-6 py-6 sm:px-10 lg:px-14">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-white/15 bg-white/[0.07] shadow-lg backdrop-blur-xl"><Sparkles className="h-5 w-5" style={{ color: copy.accent }} /></div>
+          <div><p className="text-sm font-black tracking-[.18em]">PATHASHALA <span style={{ color: copy.accent }}>AI</span></p><p className="mt-0.5 text-[10px] uppercase tracking-[.2em] text-emerald-100/45">Learning, reimagined</p></div>
         </div>
-        <div className="relative max-w-xl py-12">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-emerald-50"><Languages className="h-4 w-4" /> Learning without language barriers</div>
-          <h1 className="text-5xl font-black leading-[1.12] xl:text-6xl">Your learning journey starts <span className="pl-shimmer inline-block bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-400 bg-clip-text text-transparent">here.</span></h1>
-          <p className="mt-6 max-w-lg text-base leading-7 text-emerald-50/85">Personalised learning, an AI tutor, schoolwork, and progress insights — designed for every learner and every language.</p>
-          <div className="mt-10 grid grid-cols-3 gap-3">
-            {[{ icon: BookOpen, title: 'Learn', detail: 'Curriculum aligned' }, { icon: Sparkles, title: 'Ask AI', detail: 'Personalised help' }, { icon: ShieldCheck, title: 'Grow', detail: 'Track progress' }].map((item) => (
-              <div key={item.title} style={{ transform: `translateY(${Math.sin((pointer.x + item.title.length * 35) / 90) * 5}px)` }} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] hover:border-white/30 hover:bg-white/20 hover:shadow-xl hover:shadow-black/10"><item.icon className="mb-4 h-5 w-5 text-amber-300" /><p className="text-sm font-extrabold">{item.title}</p><p className="mt-1 text-[11px] text-emerald-100">{item.detail}</p></div>
-            ))}
-          </div>
-        </div>
-        <p className="relative text-xs text-emerald-100/70">Built for Indian learners • Multilingual • Student-first</p>
-      </section>
+        <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-emerald-50/65 sm:flex"><span className="h-1.5 w-1.5 rounded-full" style={{ background: copy.accent, boxShadow: '0 0 12px var(--role-accent)' }} /> A brighter way to learn</div>
+      </header>
 
-      <section className="relative z-10 flex items-center justify-center px-5 py-10 sm:px-8">
-        <div style={{ transform: `perspective(1000px) rotateX(${heroTilt.x * -0.25}deg) rotateY(${heroTilt.y * 0.25}deg)` }} className="w-full max-w-md rounded-[2rem] border border-white/80 bg-white/75 p-5 shadow-[0_30px_100px_-30px_rgba(0,75,56,0.35)] backdrop-blur-2xl transition-transform duration-200 sm:p-7">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#006A4E] text-white"><Sparkles className="h-6 w-6 text-amber-300" /></div>
-            <div><p className="font-black">PATHASHALA AI</p><p className="text-xs text-[#64776B]">Every language. Every learner.</p></div>
+      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-88px)] max-w-[1440px] items-center gap-10 px-5 pb-10 sm:px-10 lg:grid-cols-[1.05fr_.95fr] lg:gap-14 lg:px-14 lg:pb-14">
+        <section className="relative flex min-h-[440px] flex-col justify-center py-5 lg:min-h-[650px] lg:py-12">
+          <div className="absolute left-[9%] top-[8%] h-[25rem] w-[25rem] max-w-[75vw] rounded-full border border-white/[0.07] pl-orbit" />
+          <div className="absolute left-[9%] top-[8%] h-[25rem] w-[25rem] max-w-[75vw] rounded-full border border-dashed border-white/[0.09] pl-orbit-reverse" style={{ transform: 'scale(.78)' }} />
+          <div className="absolute left-[13%] top-[14%] h-[21rem] w-[21rem] max-w-[65vw] rounded-full blur-3xl pl-breathe" style={{ background: copy.soft, opacity: .2 }} />
+          <div className="relative z-10 max-w-2xl pl-2 sm:pl-6">
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-[10px] font-bold tracking-[.2em] text-white/70 backdrop-blur-xl"><Orbit className="h-3.5 w-3.5" style={{ color: copy.accent }} /> {copy.eyebrow}</div>
+            <h1 key={role} className="pl-reveal whitespace-pre-line text-[3.8rem] font-semibold leading-[.98] tracking-[-.065em] sm:text-7xl xl:text-[6.3rem]">{copy.title.split('\n')[0]}<br /><span style={{ color: copy.accent }}>{copy.title.split('\n')[1]}</span></h1>
+            <p className="mt-7 max-w-md text-base leading-7 text-emerald-50/60 sm:text-lg">{copy.description}</p>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <div className="pl-rise flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 backdrop-blur-xl"><div className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: copy.accent + '20', color: copy.accent }}><BrainCircuit className="h-5 w-5" /></div><div><p className="text-xs font-bold">AI-powered</p><p className="mt-1 text-[10px] text-white/45">Support that adapts</p></div></div>
+              <div className="pl-rise flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 backdrop-blur-xl" style={{ animationDelay: '-2s' }}><div className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: copy.accent + '20', color: copy.accent }}><Languages className="h-5 w-5" /></div><div><p className="text-xs font-bold">Made for everyone</p><p className="mt-1 text-[10px] text-white/45">Learn in your own way</p></div></div>
+            </div>
           </div>
-          <div className="mb-7">
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#0B8457]">Welcome back</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight">Sign in to Pathashala<span className="inline-block animate-pulse text-[#0B8457]">.</span></h2>
-            <p className="mt-2 text-sm leading-6 text-[#64776B]">Choose your portal and use your registered email or school ID.</p>
-          </div>
+          <div className="pointer-events-none absolute bottom-[9%] right-[8%] hidden h-32 w-32 items-center justify-center rounded-full border border-white/10 bg-white/[0.025] backdrop-blur-sm lg:flex pl-rise"><div className="absolute inset-3 rounded-full border border-dashed border-white/15 pl-orbit" /><Atom className="h-9 w-9" style={{ color: copy.accent }} /><span className="absolute -right-2 top-5 h-3 w-3 rounded-full" style={{ background: copy.accent, boxShadow: '0 0 20px var(--role-accent)' }} /></div>
+          <p className="relative z-10 mt-12 pl-2 text-[10px] tracking-[.12em] text-white/30 sm:pl-6">ONE AI · EVERY LANGUAGE · EVERY LEARNER</p>
+        </section>
 
-          <div className="mb-6 grid grid-cols-3 gap-2 rounded-2xl border border-[#D5E9DC] bg-white p-1.5">
-            {(['student', 'teacher', 'parent'] as UserRole[]).map((item) => (
-              <button key={item} type="button" onClick={() => { setRole(item); setError(''); }} className={`rounded-xl px-2 py-3 text-sm font-bold capitalize transition-all duration-300 hover:scale-[1.03] ${role === item ? 'bg-gradient-to-r from-[#006A4E] to-[#0B8457] text-white shadow-lg shadow-emerald-900/20 ring-1 ring-emerald-500/20' : 'text-[#64776B] hover:bg-[#F4FBF6]'}`}>{item}</button>
-            ))}
-          </div>
+        <section className="relative mx-auto w-full max-w-[470px] py-4 lg:py-10">
+          <div className="pointer-events-none absolute -inset-5 rounded-[2.5rem] blur-2xl transition-colors duration-700" style={{ background: copy.soft, opacity: .12 }} />
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.13] bg-[#0B2921]/85 p-6 shadow-[0_30px_100px_rgba(0,0,0,.35)] backdrop-blur-2xl sm:p-9">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, var(--role-accent), transparent)' }} />
+            <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full blur-3xl" style={{ background: copy.soft, opacity: .18 }} />
+            <div className="relative">
+              <div className="mb-8 flex items-start justify-between gap-4">
+                <div><p className="text-[10px] font-extrabold tracking-[.25em]" style={{ color: copy.accent }}>WELCOME TO YOUR WORLD</p><h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] sm:text-[2.2rem]">Let's begin<span style={{ color: copy.accent }}>.</span></h2><p className="mt-2 text-sm text-emerald-50/45">Your next discovery is one sign-in away.</p></div>
+                <div className="pl-breathe grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05]" style={{ color: copy.accent }}><Stars className="h-5 w-5" /></div>
+              </div>
 
-          <form onSubmit={submit} className="space-y-5">
-            <label className="block"><span className="mb-2 block text-sm font-bold">Email or school ID</span><span className="flex items-center gap-3 rounded-xl border border-[#CFE2D6] bg-white px-4 focus-within:border-[#006A4E] focus-within:ring-4 focus-within:ring-[#006A4E]/10"><Mail className="h-5 w-5 shrink-0 text-[#0B8457]" /><input autoComplete="username" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="you@pathashala.edu" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#9AA9A0]" /></span></label>
-            <label className="block"><span className="mb-2 block text-sm font-bold">Password</span><span className="flex items-center gap-3 rounded-xl border border-[#CFE2D6] bg-white px-4 focus-within:border-[#006A4E] focus-within:ring-4 focus-within:ring-[#006A4E]/10"><LockKeyhole className="h-5 w-5 shrink-0 text-[#0B8457]" /><input autoComplete="current-password" required type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#9AA9A0]" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="text-[#64776B]">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
-            {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
-            <button disabled={loading} type="submit" className="pl-shimmer flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#006A4E] via-[#0B8457] to-[#006A4E] px-4 text-sm font-extrabold text-white shadow-lg shadow-[#006A4E]/25 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#006A4E]/30 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70">{loading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Signing in…</> : <>Sign in <ArrowRight className="h-4 w-4" /></>}</button>
-          </form>
+              <div className="mb-7 rounded-2xl border border-white/[0.08] bg-black/15 p-1.5">
+                <div className="grid grid-cols-3 gap-1">
+                  {([{ id: 'student', icon: GraduationCap, label: 'Student' }, { id: 'teacher', icon: BookOpen, label: 'Teacher' }, { id: 'parent', icon: ShieldCheck, label: 'Parent' }] as const).map((item) => (
+                    <button key={item.id} type="button" onClick={() => { setRole(item.id); setError(''); }} className={`flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-xs font-bold transition-all duration-300 ${role === item.id ? 'pl-role-active scale-[1.02]' : 'pl-role-idle'}`}><item.icon className="h-4 w-4" /><span>{item.label}</span></button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="mt-6 rounded-2xl border border-[#D5E9DC] bg-white p-4">
-            <button type="button" onClick={() => setShowDemo(!showDemo)} className="flex w-full items-center justify-between text-left"><span className="text-sm font-extrabold">Demo accounts</span><span className="text-xs font-bold text-[#0B8457]">{showDemo ? 'Hide' : 'Show'}</span></button>
-            {showDemo && <div className="mt-3 space-y-2">{DEMO_ACCOUNTS.map((account) => <button type="button" key={account.role} onClick={() => chooseDemo(account)} className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition ${role === account.role ? 'border-[#0B8457] bg-[#F0FAF4]' : 'border-[#E2EEE6] hover:bg-[#F8FCF9]'}`}><span><span className="block text-sm font-bold">{account.label}</span><span className="mt-0.5 block text-xs text-[#64776B]">{account.identifier}</span></span><span className="text-xs font-bold text-[#0B8457]">Use</span></button>)}<p className="pt-1 text-[11px] text-[#64776B]">Demo password: <strong>password123</strong></p></div>}
+              <form onSubmit={submit} className="space-y-4">
+                <label className="block"><span className="mb-2 block text-[11px] font-bold tracking-wide text-emerald-50/70">EMAIL OR SCHOOL ID</span><span className="pl-input flex items-center gap-3 rounded-2xl px-4"><Mail className="h-4 w-4 shrink-0" style={{ color: copy.accent }} /><input autoComplete="username" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="you@pathashala.edu" className="h-[3.65rem] min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25" /></span></label>
+                <label className="block"><span className="mb-2 block text-[11px] font-bold tracking-wide text-emerald-50/70">PASSWORD</span><span className="pl-input flex items-center gap-3 rounded-2xl px-4"><LockKeyhole className="h-4 w-4 shrink-0" style={{ color: copy.accent }} /><input autoComplete="current-password" required type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" className="h-[3.65rem] min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="rounded-lg p-1 text-white/45 transition hover:text-white">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
+                {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
+                <button disabled={loading} type="submit" className="pl-submit group flex h-[3.7rem] w-full items-center justify-between rounded-2xl px-5 text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-60"><span className="flex items-center gap-2">{loading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Entering your space…</> : <>Enter your learning space <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" /></>}</span><span className="text-[10px] font-bold tracking-[.12em] opacity-60">LET'S GO</span></button>
+              </form>
+
+              <div className="mt-6 border-t border-white/[0.09] pt-5">
+                <button type="button" onClick={() => setShowDemo(!showDemo)} className="flex w-full items-center justify-between text-left text-xs font-bold text-white/55 transition hover:text-white"><span className="flex items-center gap-2"><AudioWaveform className="h-4 w-4" style={{ color: copy.accent }} /> Explore a demo account</span><span>{showDemo ? '−' : '+'}</span></button>
+                {showDemo && <div className="mt-4 space-y-2 pl-reveal">{DEMO_ACCOUNTS.map((account) => <button type="button" key={account.role} onClick={() => chooseDemo(account)} className="flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.025] px-3.5 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.07]"><span><span className="block text-xs font-bold text-white/85">{account.label}</span><span className="mt-1 block text-[10px] text-white/40">{account.identifier}</span></span><ArrowUpRight className="h-4 w-4" style={{ color: copy.accent }} /></button>)}<p className="pt-1 text-[10px] text-white/35">Demo password: <span className="font-semibold text-white/55">password123</span></p></div>}
+              </div>
+              <p className="mt-6 flex items-center justify-center gap-2 text-[10px] text-white/30"><ShieldCheck className="h-3.5 w-3.5" /> Your learning space starts here</p>
+            </div>
           </div>
-          <p className="mt-6 flex items-center justify-center gap-2 text-xs text-[#64776B]"><ShieldCheck className="h-4 w-4 text-[#0B8457]" /> Sign in connects to the local Pathashala API.</p>
-        </div>
-      </section>
+          <p className="mt-5 text-center text-[10px] tracking-wide text-white/25">Move your cursor. Change your role. Watch your space respond.</p>
+        </section>
+      </div>
     </main>
   );
 };
