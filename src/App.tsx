@@ -61,7 +61,8 @@ import {
   AlertTriangle,
   LogIn,
   LogOut,
-  FileSpreadsheet
+  FileSpreadsheet,
+  BookOpen
 } from 'lucide-react';
 
 export default function App() {
