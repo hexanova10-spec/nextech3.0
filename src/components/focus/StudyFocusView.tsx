@@ -147,6 +147,15 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
   const [screenStayAwake, setScreenStayAwake] = useState(false);
+  const [visionStatus, setVisionStatus] = useState('Waiting for camera');
+  const [personDetected, setPersonDetected] = useState<boolean | null>(null);
+  const [gazeEstimate, setGazeEstimate] = useState('Not available');
+  const [drowsyEstimate, setDrowsyEstimate] = useState('Not available');
+  const visionEngineRef = useRef<any>(null);
+  const visionFrameRef = useRef<number | null>(null);
+  const closedEyesSinceRef = useRef<number | null>(null);
+  const lastVisionTimeRef = useRef<number>(0);
+
 
   // Attach the stream after React mounts the conditional video element.
   useEffect(() => {
@@ -160,6 +169,117 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
       });
     }
   }, [cameraStream, cameraActive]);
+
+
+  // Optional on-device face landmark analysis. Video frames are processed locally;
+  // the app does not upload frames or identify who the person is.
+  useEffect(() => {
+    let cancelled = false;
+    let lastVideoTime = -1;
+    const boot = async () => {
+      if (!cameraActive || !cameraStream || !videoRef.current) {
+        if (visionFrameRef.current !== null) cancelAnimationFrame(visionFrameRef.current);
+        visionFrameRef.current = null;
+        if (visionEngineRef.current) {
+          try { visionEngineRef.current.close(); } catch {}
+          visionEngineRef.current = null;
+        }
+        setVisionStatus(cameraActive ? 'Waiting for video frames' : 'Camera analysis off');
+        setPersonDetected(null);
+        setGazeEstimate('Not available');
+        setDrowsyEstimate('Not available');
+        closedEyesSinceRef.current = null;
+        return;
+      }
+      setVisionStatus('Loading on-device vision model…');
+      try {
+        // Loaded only when the user enables the camera. The model runs in-browser.
+        const visionModule: any = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm');
+        if (cancelled) return;
+        const files = await visionModule.FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+        );
+        const landmarker = await visionModule.FaceLandmarker.createFromOptions(files, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'CPU'
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          outputFaceBlendshapes: false,
+          outputFacialTransformationMatrixes: false
+        });
+        if (cancelled) { landmarker.close(); return; }
+        visionEngineRef.current = landmarker;
+        setVisionStatus('Analyzing locally');
+        const distance = (a: any, b: any) => Math.hypot(a.x-b.x, a.y-b.y);
+        const ear = (p: any[], a: number, b: number, c: number, d: number, e: number, f: number) => {
+          const vertical = distance(p[b],p[f]) + distance(p[c],p[e]);
+          const horizontal = 2 * distance(p[a],p[d]);
+          return horizontal ? vertical / horizontal : 0;
+        };
+        const loop = (now: number) => {
+          if (cancelled) return;
+          const video = videoRef.current;
+          if (video && video.readyState >= 2 && video.currentTime !== lastVideoTime && now-lastVisionTimeRef.current > 180) {
+            lastVideoTime = video.currentTime;
+            lastVisionTimeRef.current = now;
+            try {
+              const result = landmarker.detectForVideo(video, now);
+              const face = result.faceLandmarks?.[0];
+              if (!face) {
+                setPersonDetected(false);
+                setGazeEstimate('No face detected');
+                setDrowsyEstimate('Cannot estimate');
+                closedEyesSinceRef.current = null;
+                setVisionStatus('No face detected — adjust lighting or camera angle');
+              } else {
+                setPersonDetected(true);
+                const leftEar = ear(face,33,160,158,133,153,144);
+                const rightEar = ear(face,362,385,387,263,373,380);
+                const avgEar = (leftEar + rightEar) / 2;
+                const nose = face[1];
+                const leftCorner = face[33], rightCorner = face[263];
+                const eyeMid = (leftCorner.x + rightCorner.x) / 2;
+                const faceWidth = Math.abs(rightCorner.x-leftCorner.x) || 0.001;
+                const horizontalOffset = (nose.x-eyeMid)/faceWidth;
+                const verticalOffset = (nose.y-(face[159].y+face[386].y)/2);
+                const looksForward = Math.abs(horizontalOffset) < 0.16 && Math.abs(verticalOffset) < 0.16;
+                setGazeEstimate(looksForward ? 'Facing screen (estimate)' : 'Possibly looking away');
+                if (avgEar < 0.17) {
+                  if (closedEyesSinceRef.current === null) closedEyesSinceRef.current = now;
+                  const closedMs = now-closedEyesSinceRef.current;
+                  setDrowsyEstimate(closedMs > 2500 ? 'Possible prolonged eye closure' : 'Eyes appear closed');
+                } else {
+                  closedEyesSinceRef.current = null;
+                  setDrowsyEstimate('Eyes appear open');
+                }
+                setVisionStatus('Face landmarks detected locally');
+              }
+            } catch (error) {
+              console.warn('Local face analysis frame failed:', error);
+              setVisionStatus('Analysis frame failed; retrying');
+            }
+          }
+          visionFrameRef.current = requestAnimationFrame(loop);
+        };
+        visionFrameRef.current = requestAnimationFrame(loop);
+      } catch (error) {
+        console.error('Could not initialize local vision model:', error);
+        setVisionStatus('Model could not load — check internet access and reload');
+      }
+    };
+    void boot();
+    return () => {
+      cancelled = true;
+      if (visionFrameRef.current !== null) cancelAnimationFrame(visionFrameRef.current);
+      visionFrameRef.current = null;
+      if (visionEngineRef.current) {
+        try { visionEngineRef.current.close(); } catch {}
+        visionEngineRef.current = null;
+      }
+    };
+  }, [cameraActive, cameraStream]);
 
   // Ask the browser to keep the display awake during an active study session.
   // This cannot lock the device or prevent users from leaving the page.
@@ -670,8 +790,15 @@ export const StudyFocusView: React.FC<StudyFocusViewProps> = ({
                   {cameraStream ? 'Camera stream connected.' : 'No live camera stream is connected.'} {screenStayAwake ? 'Screen stay-awake is active during this study session.' : 'Screen stay-awake activates when a study session starts, if supported by your browser.'}
                 </p>
                 <p className="text-[10px] text-[#64776B] leading-tight">
-                  🔒 <strong>Privacy:</strong> Camera preview stays in this browser. Face/eye tracking and recording are not enabled. Focus alerts detect when this tab or window loses focus.
+                  🔒 <strong>Privacy:</strong> Face landmarks are analyzed locally in this browser; frames are not uploaded or recorded. This is an estimate, not a reliable attention or sleep detector.
                 </p>
+                <div className="grid grid-cols-1 gap-1.5 rounded-xl border border-[#D5E9DC] bg-[#F4FBF6] p-3 text-[11px] text-[#18352A]" aria-live="polite">
+                  <div className="font-bold text-[#006A4E]">On-device presence analysis</div>
+                  <div>Model: {visionStatus}</div>
+                  <div>Person/face: {personDetected === null ? 'Waiting' : personDetected ? 'Detected' : 'Not detected'}</div>
+                  <div>Screen direction: {gazeEstimate}</div>
+                  <div>Drowsiness: {drowsyEstimate}</div>
+                </div>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-[#F4FBF6] border border-[#D5E9DC] text-center space-y-2">
