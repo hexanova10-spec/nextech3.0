@@ -56,25 +56,15 @@ export const AIStudyStudioView: React.FC<AIStudyStudioViewProps> = ({ profile, a
         })
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `AI generation failed (HTTP ${res.status})`);
+      if (typeof data.content !== 'string' || !data.content.trim()) {
+        throw new Error('The live AI returned an empty response. Please try again.');
+      }
       setGeneratedContent(data.content);
     } catch (e) {
-      console.warn('Fallback studio generator:', e);
-      setGeneratedContent(`### 📚 Quick Revision Notes • Class ${profile.classNum} ${activeSubject}
-**Topic:** ${topic}
-**Language:** ${targetLang}
-
-#### 1. Core Principles
-- Fundamental relation connecting given parameters for school examinations.
-- SI unit compliance and dimensional consistency.
-
-#### 2. Key Formulas to Remember
-$$V = I \\times R$$
-$$P = V \\times I = I^2 R = \\frac{V^2}{R}$$
-
-#### 3. High-Yield Exam Points (Odisha BSE / CBSE)
-- State the law clearly with experimental conditions (e.g. constant temperature).
-- State the direction of conventional current (positive to negative terminal).`);
+      console.error('Live Study Studio request failed:', e);
+      setGeneratedContent(`LIVE AI ERROR: ${e instanceof Error ? e.message : 'Unknown network or server error'}. No offline sample was substituted. Please check the backend and Gemini configuration, then try again.`);
     } finally {
       setIsGenerating(false);
     }
