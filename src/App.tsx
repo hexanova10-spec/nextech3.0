@@ -60,6 +60,7 @@ import {
   Activity,
   AlertTriangle,
   LogIn,
+  LogOut,
   FileSpreadsheet
 } from 'lucide-react';
 
@@ -79,6 +80,7 @@ export default function App() {
 
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   // Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -153,6 +155,17 @@ export default function App() {
     } else {
       setActiveTab('dashboard');
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('pathashala_token');
+    localStorage.removeItem('pathashala_user');
+    setIsAuthenticated(false);
+    setIsProfileMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    setIsAuthModalOpen(false);
+    setRole('student');
+    setActiveTab('dashboard');
   };
 
   // Switch between the student's 2 assigned classes
@@ -353,8 +366,8 @@ export default function App() {
             </button>
           </div>
 
-          {/* Mobile Actions */}
-          <div className="flex items-center gap-2 lg:hidden">
+          {/* Responsive Actions and Profile Menu */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setIsNotificationDrawerOpen(true)}
               className="p-2 rounded-xl bg-[#F4FBF6] text-[#006A4E] border border-[#D5E9DC] relative"
@@ -380,10 +393,49 @@ export default function App() {
             </button>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-xl text-[#18352A] hover:bg-[#F4FBF6]"
+              className="p-2 rounded-xl text-[#18352A] hover:bg-[#F4FBF6] lg:hidden"
+              aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsProfileMenuOpen((open) => !open)}
+                className="flex items-center gap-2 rounded-xl border border-[#D5E9DC] bg-white px-2.5 py-2 hover:bg-[#F4FBF6] transition"
+                aria-haspopup="menu"
+                aria-expanded={isProfileMenuOpen}
+                aria-label="Open profile menu"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#DFF3E8] text-[#006A4E]">
+                  <UserIcon className="h-4 w-4" />
+                </span>
+                <span className="hidden sm:block max-w-28 text-left">
+                  <span className="block truncate text-xs font-extrabold text-[#18352A]">{currentUser.name}</span>
+                  <span className="block text-[10px] font-semibold capitalize text-[#64776B]">{role} profile</span>
+                </span>
+                <ChevronDown className="hidden sm:block h-3.5 w-3.5 text-[#64776B]" />
+              </button>
+
+              {isProfileMenuOpen && (
+                <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-[#D5E9DC] bg-white p-2 shadow-xl">
+                  <div className="border-b border-[#E2EEE6] px-3 py-2.5">
+                    <p className="truncate text-sm font-extrabold text-[#18352A]">{currentUser.name}</p>
+                    <p className="mt-0.5 text-xs capitalize text-[#64776B]">{role} account</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="mt-2 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-700 transition hover:bg-rose-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
