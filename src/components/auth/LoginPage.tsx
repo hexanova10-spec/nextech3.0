@@ -55,7 +55,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/auth/login', {
+      // Vercel hosts the frontend while the Express API runs separately on Render.
+      // VITE_API_URL is configured in the Vercel project environment variables.
+      const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: identifier.trim(), password, role })
