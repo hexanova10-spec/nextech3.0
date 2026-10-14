@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://pathasala.onrender.com"
+      "destination": "https://pathasala.onrender.com/api/:path*"
     }
   ]
 }
